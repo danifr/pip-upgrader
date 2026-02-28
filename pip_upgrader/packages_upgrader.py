@@ -19,8 +19,9 @@ class PackagesUpgrader(object):
         self.selected_packages = selected_packages
         self.requirements_files = requirements_files
         self.upgraded_packages = []
-        self.dry_run = options['--dry-run']
-        self.check_gte = options['--check-greater-equal']
+        self._upgraded_package_names = set()
+        self.dry_run = options.get('--dry-run', False)
+        self.check_gte = options.get('--check-greater-equal', False)
         skip_pkg_install = options.get('--skip-package-installation', False)
         if 'PIP_UPGRADER_SKIP_PACKAGE_INSTALLATION' in os.environ:
             skip_pkg_install = True  # pragma: nocover
@@ -89,7 +90,9 @@ class PackagesUpgrader(object):
         line = re.sub(pattern, repl, line)
 
         if line != original_line:
-            self.upgraded_packages.append(package)
+            if package['name'] not in self._upgraded_package_names:
+                self._upgraded_package_names.add(package['name'])
+                self.upgraded_packages.append(package)
 
             if self.dry_run:  # pragma: nocover
                 print('[Dry Run]: skipping requirements replacement:',

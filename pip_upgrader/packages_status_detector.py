@@ -44,8 +44,10 @@ class PackagesStatusDetector(object):
         if not options.get('--use-default-index'):
             self._update_index_url_from_configs()
 
-        self.check_gte = options['--check-greater-equal']
+        self.check_gte = options.get('--check-greater-equal', False)
         self._prerelease = False
+        timeout_val = options.get('--timeout')
+        self._timeout = int(timeout_val) if timeout_val else 15
 
     def _update_index_url_from_configs(self):
         """ Checks for alternative index-url in pip.conf """
@@ -157,10 +159,9 @@ class PackagesStatusDetector(object):
         """
 
         try:
-            package_canonical_name = package_name
-            if self.PYPI_API_TYPE == 'simple_html':
-                package_canonical_name = canonicalize_name(package_name)
-            response = requests.get(self.PYPI_API_URL.format(package=package_canonical_name), timeout=15)
+            package_canonical_name = canonicalize_name(package_name)
+            response = requests.get(self.PYPI_API_URL.format(package=package_canonical_name),
+                                    timeout=self._timeout)
         except HTTPError as e:  # pragma: nocover
             return False, e.message
 
@@ -196,7 +197,12 @@ class PackagesStatusDetector(object):
         """
 
         data = response.json()
-        all_versions = [version.parse(vers) for vers in data['releases'].keys()]
+        all_versions = []
+        for vers in data['releases'].keys():
+            try:
+                all_versions.append(version.parse(vers))
+            except version.InvalidVersion:
+                continue
         if not self._prerelease:
             filtered_versions = [vers for vers in all_versions if not vers.is_prerelease and not vers.is_postrelease]
         else:

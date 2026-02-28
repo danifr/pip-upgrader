@@ -29,14 +29,12 @@ class RequirementsDetector(object):
 
     def autodetect_files(self):
         """ Attempt to detect requirements files in the current working directory """
-        if self._is_valid_requirements_file('requirements.txt'):
-            self.filenames.append('requirements.txt')
-
-        if self._is_valid_requirements_file('requirements.pip'):  # pragma: nocover
-            self.filenames.append('requirements.pip')
+        for candidate in ['requirements.txt', 'requirements.pip', 'requirements.in']:
+            if self._is_valid_requirements_file(candidate):
+                self.filenames.append(candidate)
 
         if os.path.isdir('requirements'):
-            for filename in os.listdir('requirements'):
+            for filename in sorted(os.listdir('requirements')):
                 file_path = os.path.join('requirements', filename)
                 if self._is_valid_requirements_file(file_path):
                     self.filenames.append(file_path)
@@ -44,8 +42,7 @@ class RequirementsDetector(object):
 
     @staticmethod
     def _is_valid_requirements_file(filename):
-        extension_ok = filename.endswith('txt') or filename.endswith('pip')
-        return extension_ok and os.path.isfile(filename) and mimetypes.guess_type(filename)[0] in ['text/plain', None]
+        return os.path.isfile(filename) and mimetypes.guess_type(filename)[0] in ['text/plain', None]
 
     def _check_inclusions_recursively(self):
         for filename in self.filenames:
