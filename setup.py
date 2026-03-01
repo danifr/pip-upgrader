@@ -41,6 +41,7 @@ setup(
     author='Simion Baws',
     author_email='simion.agv@gmail.com',
     license='Apache License 2.0',
+    python_requires='>=3.9',
     classifiers=[
         'Intended Audience :: Developers',
         'Topic :: Utilities',
@@ -48,16 +49,17 @@ setup(
         'Natural Language :: English',
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
     ],
     keywords='cli,pip,pypi,requirements,upgrade',
     packages=find_packages(exclude=['docs', 'tests*']),
-    install_requires=['docopt', 'packaging', 'requests', 'terminaltables', 'colorclass'],
+    install_requires=['docopt-ng', 'packaging', 'requests', 'terminaltables', 'colorclass'],
     extras_require={
-        'test': ['coverage', 'pytest', 'pytest-cov', 'pytest-pep8', 'mock', 'responses'],
+        'test': ['coverage', 'pytest', 'pytest-cov', 'mock', 'responses'],
     },
     entry_points={
         'console_scripts': [
