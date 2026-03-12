@@ -70,3 +70,8 @@ select = ["E", "F", "W", "I"]
 
 [tool.ruff.format]
 quote-style = "preserve"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.5.1",
+]
