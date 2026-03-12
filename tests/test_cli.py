@@ -47,7 +47,6 @@ class TestVersion(TestCase):
 @patch('pip_upgrader.packages_interactive_selector.user_input', return_value='all')
 @patch('pip_upgrader.virtualenv_checker.is_virtualenv', return_value=True)
 class TestCommand(TestCase):
-
     PACKAGE_NAMES = ['Django', 'celery', 'django-rest-auth', 'ipython']
 
     def _add_responses_mocks(self):
@@ -99,11 +98,13 @@ class TestCommand(TestCase):
     @patch.dict('os.environ', {}, clear=False)
     def test_command_simple_html_index_url(self, options_mock, is_virtualenv_mock, user_input_mock):
 
-        with patch('sys.stdout', new_callable=StringIO) as stdout_mock, \
-                patch(
-                    'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
-                    new=['pip.test.conf'],
-                ):
+        with (
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+            patch(
+                'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
+                new=['pip.test.conf'],
+            ),
+        ):
             cli.main()
             output = stdout_mock.getvalue()
 
@@ -151,11 +152,13 @@ class TestCommand(TestCase):
     )
     def test_command__use_default_index(self, options_mock, is_virtualenv_mock, user_input_mock):
 
-        with patch('sys.stdout', new_callable=StringIO) as stdout_mock, \
-                patch(
-                    'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
-                    new=['pip.test.conf'],
-                ):
+        with (
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+            patch(
+                'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
+                new=['pip.test.conf'],
+            ),
+        ):
             cli.main()
             output = stdout_mock.getvalue()
 
@@ -348,11 +351,13 @@ class TestCommand(TestCase):
     @patch.dict('os.environ', {}, clear=False)
     def test_command_not_specific_package_prerelease_html_api(self, options_mock, is_virtualenv_mock, user_input_mock):
 
-        with patch('sys.stdout', new_callable=StringIO) as stdout_mock, \
-                patch(
-                    'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
-                    new=['pip.test.conf'],
-                ):
+        with (
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+            patch(
+                'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
+                new=['pip.test.conf'],
+            ),
+        ):
             cli.main()
             output = stdout_mock.getvalue()
 

@@ -7,7 +7,6 @@ from colorclass import Color
 
 
 class PackagesUpgrader(object):
-
     selected_packages = None
     requirements_files = None
     upgraded_packages = None
