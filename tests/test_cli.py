@@ -1,3 +1,5 @@
+import shutil
+import tempfile
 from io import StringIO
 from subprocess import PIPE
 from subprocess import Popen as popen
@@ -9,6 +11,8 @@ from packaging.utils import canonicalize_name
 
 from pip_upgrader import __version__ as VERSION
 from pip_upgrader import cli
+from pip_upgrader.packages_detector import PackagesDetector
+from pip_upgrader.requirements_detector import RequirementsDetector
 
 DEFAULT_OPTIONS = {
     '--dry-run': False,
@@ -522,3 +526,111 @@ class TestCommand(TestCase):
         self.assertIn('Found valid requirements file(s)', output)
         self.assertIn('requirements.txt', output)
         self.assertIn('Successfully upgraded', output)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '-p': ['all'], '<requirements_file>': ['tests/fixtures/sample_pyproject.toml']}
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_command_pyproject_toml(self, options_mock, is_virtualenv_mock, user_input_mock):
+        """Test upgrading packages from pyproject.toml."""
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        self.assertFalse(user_input_mock.called)
+        self.assertIn('Django ... upgrade available: 1.10 ==>', output)
+        self.assertIn('django-rest-auth ... upgrade available: 0.9.0 ==>', output)
+        self.assertIn('celery ... upgrade available: 3.1.1 ==>', output)
+        self.assertIn('Successfully upgraded', output)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '-p': ['all'], '<requirements_file>': ['tests/fixtures/sample_pyproject.toml']}
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_command_pyproject_toml_version_replacement(self, options_mock, is_virtualenv_mock, user_input_mock):
+        """Test that pyproject.toml versions are actually updated in the file."""
+        # Work on a copy to avoid modifying the fixture
+        tmpdir = tempfile.mkdtemp()
+        tmp_pyproject = tmpdir + '/pyproject.toml'
+        shutil.copy('tests/fixtures/sample_pyproject.toml', tmp_pyproject)
+
+        options_mock.return_value = make_options(
+            **{
+                '--dry-run': False,
+                '--skip-package-installation': True,
+                '-p': ['all'],
+                '<requirements_file>': [tmp_pyproject],
+            }
+        )
+
+        with patch('sys.stdout', new_callable=StringIO):
+            cli.main()
+
+        with open(tmp_pyproject) as f:
+            content = f.read()
+
+        # Versions should be updated
+        self.assertNotIn('Django==1.10', content)
+        self.assertNotIn('django-rest-auth[with_social]==0.9.0', content)
+        self.assertNotIn('celery==3.1.1', content)
+        # New versions should be present
+        self.assertIn('Django==', content)
+        self.assertIn('celery==', content)
+
+        shutil.rmtree(tmpdir)
+
+
+class TestPyprojectDetection(TestCase):
+    """Tests for pyproject.toml detection and parsing."""
+
+    def test_requirements_detector_accepts_pyproject(self):
+        """RequirementsDetector should accept a valid pyproject.toml."""
+        detector = RequirementsDetector(['tests/fixtures/sample_pyproject.toml'])
+        self.assertIn('tests/fixtures/sample_pyproject.toml', detector.get_filenames())
+
+    def test_requirements_detector_rejects_pyproject_without_deps(self):
+        """RequirementsDetector should reject pyproject.toml without [project.dependencies]."""
+        detector = RequirementsDetector(['tests/fixtures/no_deps_pyproject.toml'])
+        self.assertEqual(detector.get_filenames(), [])
+
+    def test_packages_detector_parses_pyproject_dependencies(self):
+        """PackagesDetector should extract pinned deps from pyproject.toml."""
+        detector = PackagesDetector(['tests/fixtures/sample_pyproject.toml'])
+        packages = detector.get_packages()
+        self.assertIn('Django==1.10', packages)
+        self.assertIn('django-rest-auth[with_social]==0.9.0', packages)
+        self.assertIn('celery==3.1.1', packages)
+        self.assertIn('ipython==6.0.0', packages)
+        # pytest has no pin, should not be included
+        self.assertNotIn('pytest', packages)
+
+    def test_packages_detector_skips_env_markers(self):
+        """PackagesDetector should strip environment markers from deps."""
+        tmpdir = tempfile.mkdtemp()
+        tmp_pyproject = tmpdir + '/pyproject.toml'
+        with open(tmp_pyproject, 'w') as f:
+            f.write('[project]\nname = "test"\ndependencies = [\n    "tomli>=1.0.0; python_version < \\"3.11\\"",\n]\n')
+        detector = PackagesDetector([tmp_pyproject])
+        packages = detector.get_packages()
+        self.assertEqual(len(packages), 1)
+        self.assertEqual(packages[0], 'tomli>=1.0.0')
+        shutil.rmtree(tmpdir)
+
+    def test_packages_detector_mixed_files(self):
+        """PackagesDetector should handle a mix of requirements.txt and pyproject.toml."""
+        detector = PackagesDetector(['requirements.txt', 'tests/fixtures/sample_pyproject.toml'])
+        packages = detector.get_packages()
+        # From requirements.txt
+        self.assertIn('Django==1.10', packages)
+        # From pyproject.toml optional-dependencies
+        self.assertIn('celery==3.1.1', packages)

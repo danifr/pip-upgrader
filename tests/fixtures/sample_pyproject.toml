@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sample-project"
+version = "1.0.0"
+dependencies = [
+    "Django==1.10",
+    "django-rest-auth[with_social]==0.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "celery==3.1.1",
+    "ipython==6.0.0",
+]
+test = [
+    "pytest",
+]

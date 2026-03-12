@@ -1,6 +1,11 @@
 import mimetypes
 import os
 
+try:
+    import tomllib
+except ModuleNotFoundError:
+    import tomli as tomllib
+
 
 class RequirementsDetector(object):
     """Takes raw requirements argument, and detects / discovers all the requirements files."""
@@ -21,7 +26,12 @@ class RequirementsDetector(object):
 
     def detect_files(self, requirements_arg):
         for argument in requirements_arg:
-            if self._is_valid_requirements_file(argument):
+            if argument.endswith('pyproject.toml'):
+                if self._is_valid_pyproject(argument):
+                    self.filenames.append(argument)
+                else:  # pragma: nocover
+                    print('Invalid pyproject.toml (no [project.dependencies]): {}'.format(argument))
+            elif self._is_valid_requirements_file(argument):
                 self.filenames.append(argument)
             else:  # pragma: nocover
                 print('Invalid requirements file: {}'.format(argument))
@@ -29,6 +39,9 @@ class RequirementsDetector(object):
 
     def autodetect_files(self):
         """Attempt to detect requirements files in the current working directory"""
+        if self._is_valid_pyproject('pyproject.toml'):
+            self.filenames.append('pyproject.toml')
+
         for candidate in ['requirements.txt', 'requirements.pip', 'requirements.in']:
             if self._is_valid_requirements_file(candidate):
                 self.filenames.append(candidate)
@@ -44,9 +57,22 @@ class RequirementsDetector(object):
     def _is_valid_requirements_file(filename):
         return os.path.isfile(filename) and mimetypes.guess_type(filename)[0] in ['text/plain', None]
 
+    @staticmethod
+    def _is_valid_pyproject(filename):
+        """Check if file is a pyproject.toml with [project.dependencies]."""
+        if not os.path.isfile(filename) or not filename.endswith('pyproject.toml'):
+            return False
+        try:
+            with open(filename, 'rb') as f:
+                data = tomllib.load(f)
+            return 'dependencies' in data.get('project', {})
+        except Exception:
+            return False
+
     def _check_inclusions_recursively(self):
         for filename in self.filenames:
-            self._detect_inclusion(filename)
+            if not filename.endswith('pyproject.toml'):
+                self._detect_inclusion(filename)
 
     def _detect_inclusion(self, filename):
         with open(filename) as fh:
