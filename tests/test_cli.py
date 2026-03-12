@@ -34,11 +34,11 @@ def make_options(**overrides):
 
 
 def mock_checkbox_select_all(*args, **kwargs):
-    """Mock questionary.checkbox that selects all choices."""
-    choices = kwargs.get('choices', [])
-    values = [c.value for c in choices]
+    """Mock questionary.checkbox that selects all via the select-all option."""
+    from pip_upgrader.packages_interactive_selector import SELECT_ALL
+
     result = MagicMock()
-    result.unsafe_ask.return_value = values
+    result.unsafe_ask.return_value = [SELECT_ALL]
     return result
 
 

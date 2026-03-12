@@ -4,12 +4,14 @@ from collections import OrderedDict
 import questionary
 from questionary import Style
 
+SELECT_ALL = 'select-all'
+
 STYLE = Style(
     [
         ('qmark', 'fg:cyan bold'),
         ('question', 'fg:cyan bold'),
-        ('pointer', 'fg:green bold'),
-        ('highlighted', 'fg:green bold'),
+        ('pointer', 'fg:cyan bold'),
+        ('highlighted', 'fg:cyan'),
         ('selected', 'fg:green'),
         ('instruction', 'fg:yellow'),
     ]
@@ -74,7 +76,8 @@ class PackageInteractiveSelector(object):
 
         header = fmt_row('#', 'Package', 'Current', 'Latest', 'Release date')
 
-        choices = []
+        choices = [questionary.Choice('** Select all **', value=SELECT_ALL, checked=False)]
+        choices.append(questionary.Separator(' ' + header))
         for i, package in self.packages_for_upgrade.items():
             label = fmt_row(
                 str(i),
@@ -83,11 +86,11 @@ class PackageInteractiveSelector(object):
                 str(package['latest_version']),
                 str(package['upload_time']),
             )
-            choices.append(questionary.Choice(label, value=i, checked=True))
+            choices.append(questionary.Choice(label, value=i, checked=False))
 
         print('')
         selected_values = questionary.checkbox(
-            'Select packages to upgrade:\n  ' + header,
+            'Select packages to upgrade:',
             choices=choices,
             style=STYLE,
             instruction='(↑↓ move, space toggle, enter confirm)',
@@ -97,7 +100,10 @@ class PackageInteractiveSelector(object):
             print('No choice selected.')
             raise KeyboardInterrupt()
 
-        self._select_packages(selected_values)
+        if SELECT_ALL in selected_values:
+            self._select_packages(self.packages_for_upgrade.keys())
+        else:
+            self._select_packages(selected_values)
 
     def _select_packages(self, indexes):
         selected = []
