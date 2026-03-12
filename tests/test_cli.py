@@ -8,10 +8,7 @@ from packaging.utils import canonicalize_name
 from pip_upgrader import __version__ as VERSION
 from pip_upgrader import cli
 
-try:
-    from unittest.mock import patch
-except ImportError:
-    from mock import patch
+from unittest.mock import patch
 
 from io import StringIO
 
@@ -104,13 +101,11 @@ class TestCommand(TestCase):
     @patch.dict('os.environ', {}, clear=False)
     def test_command_simple_html_index_url(self, options_mock, is_virtualenv_mock, user_input_mock):
 
-        with (
-            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
-            patch(
-                'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
-                new=['pip.test.conf'],
-            ),
-        ):
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock, \
+                patch(
+                    'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
+                    new=['pip.test.conf'],
+                ):
             cli.main()
             output = stdout_mock.getvalue()
 
@@ -158,13 +153,11 @@ class TestCommand(TestCase):
     )
     def test_command__use_default_index(self, options_mock, is_virtualenv_mock, user_input_mock):
 
-        with (
-            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
-            patch(
-                'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
-                new=['pip.test.conf'],
-            ),
-        ):
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock, \
+                patch(
+                    'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
+                    new=['pip.test.conf'],
+                ):
             cli.main()
             output = stdout_mock.getvalue()
 
@@ -357,13 +350,11 @@ class TestCommand(TestCase):
     @patch.dict('os.environ', {}, clear=False)
     def test_command_not_specific_package_prerelease_html_api(self, options_mock, is_virtualenv_mock, user_input_mock):
 
-        with (
-            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
-            patch(
-                'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
-                new=['pip.test.conf'],
-            ),
-        ):
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock, \
+                patch(
+                    'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
+                    new=['pip.test.conf'],
+                ):
             cli.main()
             output = stdout_mock.getvalue()
 

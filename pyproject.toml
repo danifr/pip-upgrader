@@ -37,13 +37,11 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "coverage",
-    "mock",
     "pytest",
     "pytest-cov",
     "responses",
 ]
 dev = [
-    "black",
     "ruff",
 ]
 
@@ -69,7 +67,5 @@ line-length = 120
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
 
-[tool.black]
-line-length = 120
-target-version = ["py39"]
-skip-string-normalization = true
+[tool.ruff.format]
+quote-style = "preserve"

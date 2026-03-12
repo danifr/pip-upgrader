@@ -258,7 +258,12 @@ class PackagesStatusDetector(object):
         pattern = r'<a.*>.*{name}-([A-z0-9\.-]*)(?:-py|\.tar).*<\/a>'.format(name=re.escape(package_name))
         versions_match = re.findall(pattern, response.content.decode('utf-8'), flags=re.IGNORECASE)
 
-        all_versions = [version.parse(vers) for vers in versions_match]
+        all_versions = []
+        for vers in versions_match:
+            try:
+                all_versions.append(version.parse(vers))
+            except version.InvalidVersion:
+                continue
         filtered_versions = [vers for vers in all_versions if not vers.is_prerelease and not vers.is_postrelease]
 
         if not filtered_versions:  # pragma: nocover
