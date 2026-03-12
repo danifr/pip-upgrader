@@ -19,17 +19,17 @@ Quick preview:
 
 ## Installation
 
-    pip install pip-upgrader
+    uv tool install pip-upgrader
 
-**Note:** this package installs the following dependencies: `docopt-ng`,
-`packaging`, `requests`, `terminaltables`, `colorclass`
+or with pip:
+
+    pip install pip-upgrader
 
 **Requires Python 3.10+**
 
 To avoid installing all these dependencies in your project, you can
-install `pip-upgrader` in your system, rather than your virtualenv. If
-you install it in your system, and need to upgrade it, run `pip install
--U pip-upgrader`
+install `pip-upgrader` as a tool (via `uv tool install`) or in your
+system Python, rather than your virtualenv.
 
 ## Usage
 
