@@ -2,16 +2,16 @@
 
 An interactive pip requirements upgrader. Because upgrading
 requirements, package by package, is a pain in the ass. It also updates
-the version in your requirements.txt file.
+the version in your requirements.txt and pyproject.toml files.
 
 ## Purpose
 
-This cli tools helps you interactively(or not) upgrade packages from
-requirements file, and also **update the pinned version from
-requirements file(s)**.
+This cli tool helps you interactively(or not) upgrade packages from
+requirements files or **pyproject.toml**, and also **update the pinned
+version in-place**.
 
-If no requirements are given, the command **attempts to detect the
-requirements file(s)** in the current directory.
+If no requirements are given, the command **attempts to detect
+requirements file(s) and pyproject.toml** in the current directory.
 
 Quick preview:
 
@@ -21,8 +21,10 @@ Quick preview:
 
     pip install pip-upgrader
 
-**Note:** this packages installs the following requirements: `'docopt-ng',
-'packaging', 'requests', 'terminaltables', 'colorclass'`
+**Note:** this package installs the following dependencies: `docopt-ng`,
+`packaging`, `requests`, `terminaltables`, `colorclass`
+
+**Requires Python 3.10+**
 
 To avoid installing all these dependencies in your project, you can
 install `pip-upgrader` in your system, rather than your virtualenv. If
@@ -40,9 +42,9 @@ the new versions of upgraded packages in current virtualenv)
 
 Arguments: :
 
-    requirements_file(s)          The requirement FILE, or WILDCARD PATH to multiple files. (positional arguments)
+    requirements_file(s)          The requirement FILE, WILDCARD PATH to multiple files, or pyproject.toml. (positional arguments)
     --prerelease                  Include prerelease versions for upgrade, when querying pypi repositories.
-    -p <package>                  Pre-choose which packages tp upgrade. Skips any prompt.
+    -p <package>                  Pre-choose which packages to upgrade. Skips any prompt.
     --dry-run                     Simulates the upgrade, but does not execute the actual upgrade.
     --check-greater-equal         Also checks packages with minimum version pinned (package>=version).
     --skip-package-installation   Only upgrade the version in requirements files, don't install the new package.
@@ -52,13 +54,17 @@ Arguments: :
 
 Examples:
 
-    pip-upgrade             # auto discovers requirements file. Prompts for selecting upgrades
+    pip-upgrade             # auto discovers requirements file(s) and pyproject.toml
     pip-upgrade requirements.txt
+    pip-upgrade pyproject.toml
     pip-upgrade requirements/dev.txt requirements/production.txt
 
     # skip prompt and manually choose some/all packages for upgrade
     pip-upgrade requirements.txt -p django -p celery
     pip-upgrade requirements.txt -p all
+
+    # upgrade dependencies in pyproject.toml
+    pip-upgrade pyproject.toml -p all
 
     # include pre-release versions
     pip-upgrade --prerelease
@@ -85,8 +91,8 @@ uv run ruff format --check .       # check formatting
 Releases are published to PyPI automatically via GitHub Actions when a version tag is pushed:
 
 ```sh
-git tag v1.10.0
-git push origin v1.10.0
+git tag v2.1.0
+git push origin v2.1.0
 ```
 
 This triggers the `publish.yml` workflow which builds and publishes to PyPI using trusted publishers (OIDC).
