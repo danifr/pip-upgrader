@@ -74,8 +74,8 @@ def main():
         if options['--dry-run']:
             print('Dry run complete. Would upgrade: {}'.format(pkg_names))
         else:
-            print('Updated versions in requirements for: {}'.format(pkg_names))
-            print('Run `uv sync` or `pip install -r <requirements_file>` to install the new versions.')
+            print('\033[32mUpdated versions in requirements for: {}\033[0m'.format(pkg_names))
+            print('\033[32mRun `uv sync` or `pip install -r <requirements_file>` to install the new versions.\033[0m')
 
     except KeyboardInterrupt:  # pragma: nocover
         print('\nUpgrade interrupted.')

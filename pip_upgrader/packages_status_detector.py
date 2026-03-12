@@ -184,10 +184,14 @@ class PackagesStatusDetector(object):
 
         for pin_type in pin_types:
             if pin_type in package_line:
-                name, vers = package_line.split(pin_type)
+                name, vers = package_line.split(pin_type, 1)
 
                 if '[' in name and name.strip().endswith(']'):
                     name = name.split('[')[0]
+
+                # Strip upper bound constraints (e.g. "8.1,<9" -> "8.1")
+                if ',' in vers:
+                    vers = vers.split(',')[0]
 
                 return name, vers
 

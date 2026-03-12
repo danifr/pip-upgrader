@@ -518,8 +518,95 @@ class TestCommand(TestCase):
         self.assertIn('celery==', content)
         self.assertIn('Updated versions', output)
         self.assertIn('uv sync', output)
+        # Verify green ANSI coloring
+        self.assertIn('\033[32m', output)
 
         shutil.rmtree(tmpdir)
+
+
+class TestVersionRanges(TestCase):
+    """Tests for version range handling (e.g., >=8.1,<9)."""
+
+    def test_expand_package_strips_upper_bound(self):
+        """_expand_package should strip upper bound from version ranges."""
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options())
+        name, vers = detector._expand_package('click>=8.1,<9')
+        self.assertEqual(name, 'click')
+        self.assertEqual(vers, '8.1')
+
+    def test_expand_package_strips_complex_upper_bound(self):
+        """_expand_package should handle complex upper bounds like >=2.0.0,<3.0.0."""
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options())
+        name, vers = detector._expand_package('requests>=2.25.0,<3.0.0')
+        self.assertEqual(name, 'requests')
+        self.assertEqual(vers, '2.25.0')
+
+    def test_expand_package_eq_no_upper_bound(self):
+        """_expand_package should work normally for == pins."""
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options())
+        name, vers = detector._expand_package('Django==1.10')
+        self.assertEqual(name, 'Django')
+        self.assertEqual(vers, '1.10')
+
+    def test_expand_package_skips_gte_when_flag_set(self):
+        """_expand_package should skip >= pins when --skip-greater-equal is set."""
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options(**{'--skip-greater-equal': True}))
+        name, vers = detector._expand_package('click>=8.1,<9')
+        self.assertIsNone(name)
+        self.assertIsNone(vers)
+
+    def test_upgrader_preserves_upper_bound(self):
+        """PackagesUpgrader should replace version but preserve upper bound constraint."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'click', 'latest_version': '8.2.0'}
+        result = upgrader._maybe_update_line_package('click>=8.1,<9\n', package)
+        self.assertEqual(result, 'click>=8.2.0,<9\n')
+
+    def test_upgrader_preserves_complex_upper_bound(self):
+        """PackagesUpgrader should preserve complex upper bounds."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'requests', 'latest_version': '2.31.0'}
+        result = upgrader._maybe_update_line_package('requests>=2.25.0,<3.0.0\n', package)
+        self.assertEqual(result, 'requests>=2.31.0,<3.0.0\n')
+
+    def test_upgrader_eq_unchanged(self):
+        """PackagesUpgrader should handle == pins normally."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'Django', 'latest_version': '4.2.0'}
+        result = upgrader._maybe_update_line_package('Django==1.10\n', package)
+        self.assertEqual(result, 'Django==4.2.0\n')
+
+    def test_upgrader_with_extras_and_upper_bound(self):
+        """PackagesUpgrader should handle extras with upper bounds."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'uvicorn', 'latest_version': '0.30.0'}
+        result = upgrader._maybe_update_line_package('uvicorn[standard]>=0.20.0,<1.0\n', package)
+        self.assertEqual(result, 'uvicorn[standard]>=0.30.0,<1.0\n')
+
+    def test_expand_package_with_extras_and_upper_bound(self):
+        """_expand_package should handle extras with upper bounds."""
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options())
+        name, vers = detector._expand_package('uvicorn[standard]>=0.20.0,<1.0')
+        self.assertEqual(name, 'uvicorn')
+        self.assertEqual(vers, '0.20.0')
 
 
 class TestPyprojectDetection(TestCase):
