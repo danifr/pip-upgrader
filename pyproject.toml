@@ -30,8 +30,8 @@ dependencies = [
     "colorclass",
     "docopt-ng",
     "packaging",
+    "questionary>=2.0.0",
     "requests",
-    "terminaltables",
     "tomli>=1.0.0; python_version < '3.11'",
 ]
 

@@ -1,16 +1,19 @@
 import re
 from collections import OrderedDict
 
-from colorclass import Color
-from terminaltables import AsciiTable
+import questionary
+from questionary import Style
 
-
-def user_input(prompt=None):  # pragma: nocover
-    try:
-        input_func = raw_input
-    except NameError:
-        input_func = input
-    return input_func(prompt)
+STYLE = Style(
+    [
+        ('qmark', 'fg:cyan bold'),
+        ('question', 'fg:cyan bold'),
+        ('pointer', 'fg:green bold'),
+        ('highlighted', 'fg:green bold'),
+        ('selected', 'fg:green'),
+        ('instruction', 'fg:yellow'),
+    ]
+)
 
 
 class PackageInteractiveSelector(object):
@@ -30,7 +33,7 @@ class PackageInteractiveSelector(object):
 
         # maybe all packages are up-to-date
         if not self.packages_for_upgrade:
-            print(Color('{autogreen}All packages are up-to-date.{/autogreen}'))
+            print('All packages are up-to-date.')
             raise KeyboardInterrupt()
 
         # choose which packages to upgrade (interactive or not)
@@ -43,7 +46,6 @@ class PackageInteractiveSelector(object):
                         if chosen_package.lower().strip() == package['name'].lower().strip():
                             self._select_packages([index])
                         else:
-                            # check with regex if no match
                             if re.search(chosen_package, package['name'].lower().strip()):
                                 self._select_packages([index])
         else:
@@ -53,77 +55,49 @@ class PackageInteractiveSelector(object):
         return self.selected_packages
 
     def ask_for_packages(self):
-        data = [
-            [
-                Color('{autoblue}No.{/autoblue}'),
-                Color('{autoblue}Package{/autoblue}'),
-                Color('{autoblue}Current version{/autoblue}'),
-                Color('{autoblue}Latest version{/autoblue}'),
-                Color('{autoblue}Release date{/autoblue}'),
-            ]
-        ]
+        # Compute column widths from data
+        col_num = max(len(str(i)) for i in self.packages_for_upgrade)
+        col_name = max(len(p['name']) for p in self.packages_for_upgrade.values())
+        col_cur = max(len(str(p['current_version'])) for p in self.packages_for_upgrade.values())
+        col_lat = max(len(str(p['latest_version'])) for p in self.packages_for_upgrade.values())
+        col_date = max(len(str(p['upload_time'])) for p in self.packages_for_upgrade.values())
 
+        # Ensure minimums for header
+        col_num = max(col_num, 1)
+        col_name = max(col_name, 7)
+        col_cur = max(col_cur, 7)
+        col_lat = max(col_lat, 6)
+        col_date = max(col_date, 12)
+
+        def fmt_row(num, name, cur, lat, date):
+            return f'{num:>{col_num}}  {name:<{col_name}}  {cur:<{col_cur}}  {lat:<{col_lat}}  {date:<{col_date}}'
+
+        header = fmt_row('#', 'Package', 'Current', 'Latest', 'Release date')
+
+        choices = []
         for i, package in self.packages_for_upgrade.items():
-            data.append(
-                [
-                    Color('{{autobgblack}}{{autogreen}} {} {{/autogreen}}{{/bgblack}}'.format(i)),
-                    Color('{{autogreen}} {} {{/autogreen}}'.format(package['name'])),
-                    package['current_version'],
-                    package['latest_version'],
-                    package['upload_time'],
-                ]
+            label = fmt_row(
+                str(i),
+                package['name'],
+                str(package['current_version']),
+                str(package['latest_version']),
+                str(package['upload_time']),
             )
+            choices.append(questionary.Choice(label, value=i, checked=True))
 
         print('')
-        print(Color('{autogreen}Available upgrades:{/autogreen}'))
-        table = AsciiTable(data)
-        print(table.table)
-        print('')
+        selected_values = questionary.checkbox(
+            'Select packages to upgrade:\n  ' + header,
+            choices=choices,
+            style=STYLE,
+            instruction='(↑↓ move, space toggle, enter confirm)',
+        ).unsafe_ask()
 
-        print(
-            'Please choose which packages should be upgraded. '
-            'Choices: "all -1 -2 -3", "q" (quit), "x" (exit) or "1 2 3"'
-        )
-        choice = user_input('Choice: ').strip()
-
-        if not choice and not choice.strip():
-            print(Color('{autored}No choice selected.{/autored}'))
+        if not selected_values:
+            print('No choice selected.')
             raise KeyboardInterrupt()
 
-        choice = choice.strip()
-
-        if choice == 'q':  # pragma: nocover
-            print(Color('{autored}Quit.{/autored}'))
-            raise KeyboardInterrupt()
-
-        if choice == 'x':  # pragma: nocover
-            print(Color('{autored}Exit.{/autored}'))
-            raise KeyboardInterrupt()
-
-        try:
-            include = []
-
-            if choice.startswith("all"):
-                # make iterator on stripped choices
-                exclude_it = map(str.strip, choice[3:].split(" "))
-                # filter out empty strings and create set of excluded indices
-                exclude = frozenset(map(int, filter(len, exclude_it)))
-
-                # include packages on keys not in excluded set
-                include = [i for i in self.packages_for_upgrade.keys() if -i not in exclude]
-
-            else:
-                include = [int(index.strip()) for index in choice.split(' ')]
-
-            selected = list(self._select_packages(include))
-
-            if not any(selected):
-                print(Color('{autored}No valid choice selected.{/autored}'))
-                raise KeyboardInterrupt()
-
-        except ValueError:  # pragma: nocover
-            print(Color('{autored}Invalid choice{/autored}'))
-            raise KeyboardInterrupt()
+        self._select_packages(selected_values)
 
     def _select_packages(self, indexes):
         selected = []
