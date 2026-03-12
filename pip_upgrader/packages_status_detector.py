@@ -1,11 +1,10 @@
 import os
 import re
-import requests
 import sys
-
 from configparser import ConfigParser, NoOptionError, NoSectionError
 from urllib.parse import urljoin
 
+import requests
 from colorclass import Color
 from packaging import version
 from packaging.utils import canonicalize_name
@@ -38,17 +37,20 @@ class PackagesStatusDetector(object):
     def __init__(self, packages, options):
         self.packages = packages
         self.packages_status_map = {}
+        self.pip_config_locations = list(self.pip_config_locations)
         self.PYPI_API_URL = 'https://pypi.python.org/pypi/{package}/json'
         self.PYPI_API_TYPE = 'pypi_json'
 
         if not options.get('--use-default-index'):
             self._update_index_url_from_configs()
 
-        self.check_gte = options['--check-greater-equal']
+        self.check_gte = options.get('--check-greater-equal', False)
         self._prerelease = False
+        timeout_val = options.get('--timeout')
+        self._timeout = int(timeout_val) if timeout_val else 15
 
     def _update_index_url_from_configs(self):
-        """ Checks for alternative index-url in pip.conf """
+        """Checks for alternative index-url in pip.conf"""
 
         if 'VIRTUAL_ENV' in os.environ:
             self.pip_config_locations.append(os.path.join(os.environ['VIRTUAL_ENV'], 'pip.conf'))
@@ -81,8 +83,12 @@ class PackagesStatusDetector(object):
 
         if index_url:
             self.PYPI_API_URL = self._prepare_api_url(index_url)
-            print(Color('Setting API url to {{autoyellow}}{}{{/autoyellow}} as found in {{autoyellow}}{}{{/autoyellow}}'
-                        '. Use --default-index-url to use pypi default index'.format(self.PYPI_API_URL, custom_config)))
+            print(
+                Color(
+                    'Setting API url to {{autoyellow}}{}{{/autoyellow}} as found in {{autoyellow}}{}{{/autoyellow}}'
+                    '. Use --default-index-url to use pypi default index'.format(self.PYPI_API_URL, custom_config)
+                )
+            )
 
     def _prepare_api_url(self, index_url):  # pragma: nocover
         if not index_url.endswith('/'):
@@ -117,9 +123,11 @@ class PackagesStatusDetector(object):
 
                 if explicit_packages_lower and package_name.lower() not in explicit_packages_lower:
                     found = False
+                    package_name_lower = package_name.lower()
                     for option_package in explicit_packages_lower:
-                        if re.search(option_package, package_name.lower()):
+                        if re.search(option_package, package_name_lower):
                             found = True
+                            break
                     if not found:
                         # skip if explicit and not chosen
                         continue
@@ -137,9 +145,11 @@ class PackagesStatusDetector(object):
 
                     # compare versions
                     if current_version < package_status['latest_version']:
-                        print('upgrade available: {} ==> {} (uploaded on {})'.format(current_version,
-                                                                                     package_status['latest_version'],
-                                                                                     package_status['upload_time']))
+                        print(
+                            'upgrade available: {} ==> {} (uploaded on {})'.format(
+                                current_version, package_status['latest_version'], package_status['upload_time']
+                            )
+                        )
                     else:
                         print('up to date: {}'.format(current_version))
                     sys.stdout.flush()
@@ -157,10 +167,8 @@ class PackagesStatusDetector(object):
         """
 
         try:
-            package_canonical_name = package_name
-            if self.PYPI_API_TYPE == 'simple_html':
-                package_canonical_name = canonicalize_name(package_name)
-            response = requests.get(self.PYPI_API_URL.format(package=package_canonical_name), timeout=15)
+            package_canonical_name = canonicalize_name(package_name)
+            response = requests.get(self.PYPI_API_URL.format(package=package_canonical_name), timeout=self._timeout)
         except HTTPError as e:  # pragma: nocover
             return False, e.message
 
@@ -188,6 +196,16 @@ class PackagesStatusDetector(object):
 
         return None, None
 
+    def _pick_latest_version(self, all_versions, filtered_versions, current_version):
+        latest_version = max(filtered_versions)
+        if self._prerelease or current_version.is_postrelease or current_version.is_prerelease:
+            prerelease_versions = [vers for vers in all_versions if vers.is_prerelease or vers.is_postrelease]
+            if prerelease_versions:
+                max_prerelease = max(prerelease_versions)
+                if max_prerelease > latest_version:
+                    latest_version = max_prerelease
+        return latest_version
+
     def _parse_pypi_json_package_info(self, package_name, current_version, response):
         """
         :type package_name: str
@@ -196,7 +214,12 @@ class PackagesStatusDetector(object):
         """
 
         data = response.json()
-        all_versions = [version.parse(vers) for vers in data['releases'].keys()]
+        all_versions = []
+        for vers in data['releases'].keys():
+            try:
+                all_versions.append(version.parse(vers))
+            except version.InvalidVersion:
+                continue
         if not self._prerelease:
             filtered_versions = [vers for vers in all_versions if not vers.is_prerelease and not vers.is_postrelease]
         else:
@@ -205,14 +228,7 @@ class PackagesStatusDetector(object):
         if not filtered_versions:  # pragma: nocover
             return False, 'error while parsing version'
 
-        latest_version = max(filtered_versions)
-
-        # even if user did not choose prerelease, if the package from requirements is pre/post release, use it
-        if self._prerelease or current_version.is_postrelease or current_version.is_prerelease:
-            prerelease_versions = [vers for vers in all_versions if vers.is_prerelease or vers.is_postrelease]
-            if prerelease_versions:
-                if max(prerelease_versions) > latest_version:
-                    latest_version = max(prerelease_versions)
+        latest_version = self._pick_latest_version(all_versions, filtered_versions, current_version)
         try:
             try:
                 latest_version_info = data['releases'][str(latest_version)][0]
@@ -230,7 +246,7 @@ class PackagesStatusDetector(object):
             'current_version': current_version,
             'latest_version': latest_version,
             'upgrade_available': current_version < latest_version,
-            'upload_time': upload_time
+            'upload_time': upload_time,
         }, 'success'
 
     def _parse_simple_html_package_info(self, package_name, current_version, response):
@@ -242,24 +258,23 @@ class PackagesStatusDetector(object):
         pattern = r'<a.*>.*{name}-([A-z0-9\.-]*)(?:-py|\.tar).*<\/a>'.format(name=re.escape(package_name))
         versions_match = re.findall(pattern, response.content.decode('utf-8'), flags=re.IGNORECASE)
 
-        all_versions = [version.parse(vers) for vers in versions_match]
+        all_versions = []
+        for vers in versions_match:
+            try:
+                all_versions.append(version.parse(vers))
+            except version.InvalidVersion:
+                continue
         filtered_versions = [vers for vers in all_versions if not vers.is_prerelease and not vers.is_postrelease]
 
         if not filtered_versions:  # pragma: nocover
             return False, 'error while parsing version'
 
-        latest_version = max(filtered_versions)
-
-        # even if user did not choose prerelease, if the package from requirements is pre/post release, use it
-        if self._prerelease or current_version.is_postrelease or current_version.is_prerelease:
-            prerelease_versions = [vers for vers in all_versions if vers.is_prerelease or vers.is_postrelease]
-            if prerelease_versions:
-                latest_version = max(prerelease_versions)
+        latest_version = self._pick_latest_version(all_versions, filtered_versions, current_version)
 
         return {
-           'name': package_name,
-           'current_version': current_version,
-           'latest_version': latest_version,
-           'upgrade_available': current_version < latest_version,
-           'upload_time': '-'
+            'name': package_name,
+            'current_version': current_version,
+            'latest_version': latest_version,
+            'upgrade_available': current_version < latest_version,
+            'upload_time': '-',
         }, 'success'

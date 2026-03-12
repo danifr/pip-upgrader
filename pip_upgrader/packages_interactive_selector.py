@@ -53,20 +53,26 @@ class PackageInteractiveSelector(object):
         return self.selected_packages
 
     def ask_for_packages(self):
-        data = [[
-            Color('{autoblue}No.{/autoblue}'),
-            Color('{autoblue}Package{/autoblue}'),
-            Color('{autoblue}Current version{/autoblue}'),
-            Color('{autoblue}Latest version{/autoblue}'),
-            Color('{autoblue}Release date{/autoblue}'),
-        ]]
+        data = [
+            [
+                Color('{autoblue}No.{/autoblue}'),
+                Color('{autoblue}Package{/autoblue}'),
+                Color('{autoblue}Current version{/autoblue}'),
+                Color('{autoblue}Latest version{/autoblue}'),
+                Color('{autoblue}Release date{/autoblue}'),
+            ]
+        ]
 
         for i, package in self.packages_for_upgrade.items():
-            data.append([Color('{{autobgblack}}{{autogreen}} {} {{/autogreen}}{{/bgblack}}'.format(i)),
-                         Color('{{autogreen}} {} {{/autogreen}}'.format(package['name'])),
-                         package['current_version'],
-                         package['latest_version'],
-                         package['upload_time']])
+            data.append(
+                [
+                    Color('{{autobgblack}}{{autogreen}} {} {{/autogreen}}{{/bgblack}}'.format(i)),
+                    Color('{{autogreen}} {} {{/autogreen}}'.format(package['name'])),
+                    package['current_version'],
+                    package['latest_version'],
+                    package['upload_time'],
+                ]
+            )
 
         print('')
         print(Color('{autogreen}Available upgrades:{/autogreen}'))
@@ -99,15 +105,12 @@ class PackageInteractiveSelector(object):
 
             if choice.startswith("all"):
                 # make iterator on stripped choices
-                exclude_it = map(str.strip, choice[ 3 : ].split(" "))
+                exclude_it = map(str.strip, choice[3:].split(" "))
                 # filter out empty strings and create set of excluded indices
                 exclude = frozenset(map(int, filter(len, exclude_it)))
 
                 # include packages on keys not in excluded set
-                include = [
-                    i for i in self.packages_for_upgrade.keys()
-                    if -i not in exclude
-                ]
+                include = [i for i in self.packages_for_upgrade.keys() if -i not in exclude]
 
             else:
                 include = [int(index.strip()) for index in choice.split(' ')]

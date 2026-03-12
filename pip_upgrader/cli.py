@@ -2,7 +2,7 @@
 pip-upgrade
 
 Usage:
-  pip-upgrade [<requirements_file>] ... [--prerelease] [-p=<package>...] [--dry-run] [--check-greater-equal] [--skip-virtualenv-check] [--skip-package-installation] [--use-default-index]
+  pip-upgrade [<requirements_file>] ... [--prerelease] [-p=<package>...] [--dry-run] [--check-greater-equal] [--skip-virtualenv-check] [--skip-package-installation] [--use-default-index] [--timeout=<seconds>]
 
 Arguments:
     requirements_file             The requirement FILE, or WILDCARD PATH to multiple files.
@@ -13,6 +13,7 @@ Arguments:
     --skip-package-installation   Only upgrade the version in requirements files, don't install the new package.
     --skip-virtualenv-check       Disable virtualenv check. Allows installing the new packages outside the virtualenv.
     --use-default-index           Skip searching for custom index-url in pip configuration file(s).
+    --timeout <seconds>           Set a custom timeout for PyPI requests (default: 15 seconds).
 
 Examples:
   pip-upgrade             # auto discovers requirements file
@@ -29,7 +30,7 @@ Help:
   https://github.com/simion/pip-upgrader
 """  # noqa: E501
 
-from colorclass import Windows, Color
+from colorclass import Color, Windows
 from docopt import docopt
 
 from pip_upgrader import __version__ as VERSION
@@ -46,7 +47,7 @@ def get_options():
 
 
 def main():
-    """ Main CLI entrypoint. """
+    """Main CLI entrypoint."""
     options = get_options()
     Windows.enable(auto_colors=True, reset_atexit=True)
 
@@ -57,18 +58,25 @@ def main():
         # 1. detect requirements files
         filenames = RequirementsDetector(options.get('<requirements_file>')).get_filenames()
         if filenames:
-            print(Color('{{autoyellow}}Found valid requirements file(s):{{/autoyellow}} '
-                        '{{autocyan}}\n{}{{/autocyan}}'.format('\n'.join(filenames))))
+            print(
+                Color(
+                    '{{autoyellow}}Found valid requirements file(s):{{/autoyellow}} '
+                    '{{autocyan}}\n{}{{/autocyan}}'.format('\n'.join(filenames))
+                )
+            )
         else:  # pragma: nocover
-            print(Color('{autoyellow}No requirements files found in current directory. CD into your project '
-                        'or manually specify requirements files as arguments.{/autoyellow}'))
+            print(
+                Color(
+                    '{autoyellow}No requirements files found in current directory. CD into your project '
+                    'or manually specify requirements files as arguments.{/autoyellow}'
+                )
+            )
             return
         # 2. detect all packages inside requirements
         packages = PackagesDetector(filenames).get_packages()
 
         # 3. query pypi API, see which package has a newer version vs the one in requirements (or current env)
-        packages_status_map = PackagesStatusDetector(
-            packages, options).detect_available_upgrades(options)
+        packages_status_map = PackagesStatusDetector(packages, options).detect_available_upgrades(options)
 
         # 4. [optionally], show interactive screen when user can choose which packages to upgrade
         selected_packages = PackageInteractiveSelector(packages_status_map, options).get_packages()
@@ -76,8 +84,12 @@ def main():
         # 5. having the list of packages, do the actual upgrade and replace the version inside all filenames
         upgraded_packages = PackagesUpgrader(selected_packages, filenames, options).do_upgrade()
 
-        print(Color('{{autogreen}}Successfully upgraded (and updated requirements) for the following packages: '
-                    '{}{{/autogreen}}'.format(','.join([package['name'] for package in upgraded_packages]))))
+        print(
+            Color(
+                '{{autogreen}}Successfully upgraded (and updated requirements) for the following packages: '
+                '{}{{/autogreen}}'.format(','.join([package['name'] for package in upgraded_packages]))
+            )
+        )
         if options['--dry-run']:
             print(Color('{automagenta}Actually, no, because this was a simulation using --dry-run{/automagenta}'))
 

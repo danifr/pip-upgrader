@@ -1,14 +1,12 @@
 import os
-
+import re
 import subprocess
 from subprocess import CalledProcessError
 
-import re
 from colorclass import Color
 
 
 class PackagesUpgrader(object):
-
     selected_packages = None
     requirements_files = None
     upgraded_packages = None
@@ -19,8 +17,9 @@ class PackagesUpgrader(object):
         self.selected_packages = selected_packages
         self.requirements_files = requirements_files
         self.upgraded_packages = []
-        self.dry_run = options['--dry-run']
-        self.check_gte = options['--check-greater-equal']
+        self._upgraded_package_names = set()
+        self.dry_run = options.get('--dry-run', False)
+        self.check_gte = options.get('--check-greater-equal', False)
         skip_pkg_install = options.get('--skip-package-installation', False)
         if 'PIP_UPGRADER_SKIP_PACKAGE_INSTALLATION' in os.environ:
             skip_pkg_install = True  # pragma: nocover
@@ -33,12 +32,11 @@ class PackagesUpgrader(object):
         return self.upgraded_packages
 
     def _update_package(self, package):
-        """ Update (install) the package in current environment,
-        and if success, also replace version in file """
+        """Update (install) the package in current environment,
+        and if success, also replace version in file"""
         try:
             if not self.dry_run and not self.skip_package_installation:  # pragma: nocover
-                pinned = '{}=={}'.format(package['name'],
-                                         package['latest_version'])
+                pinned = '{}=={}'.format(package['name'], package['latest_version'])
                 subprocess.check_call(['pip', 'install', pinned])
             else:
                 # dry run has priority in messages
@@ -46,8 +44,7 @@ class PackagesUpgrader(object):
                     lbl = 'Dry Run'
                 else:
                     lbl = "Skip Install"  # pragma: nocover
-                print('[{}]: skipping package installation:'.format(lbl),
-                      package['name'])
+                print('[{}]: skipping package installation:'.format(lbl), package['name'])
             # update only if installation success
             self._update_requirements_package(package)
 
@@ -56,12 +53,9 @@ class PackagesUpgrader(object):
 
     def _update_requirements_package(self, package):
         for filename in set(self.requirements_files):
-            lines = []
-
             # read current lines
             with open(filename, 'r') as frh:
-                for line in frh:
-                    lines.append(line)
+                lines = frh.readlines()
 
             try:
                 # write updates lines
@@ -81,19 +75,23 @@ class PackagesUpgrader(object):
         pin_type = r'[>=]=' if self.check_gte else '=='
 
         pattern = r'\b({package}(?:\[\w*\])?{pin_type})[a-zA-Z0-9\.]+\b'.format(
-            package=re.escape(package['name']),
-            pin_type=pin_type
+            package=re.escape(package['name']), pin_type=pin_type
         )
 
         repl = r'\g<1>{}'.format(package['latest_version'])
         line = re.sub(pattern, repl, line)
 
         if line != original_line:
-            self.upgraded_packages.append(package)
+            if package['name'] not in self._upgraded_package_names:
+                self._upgraded_package_names.add(package['name'])
+                self.upgraded_packages.append(package)
 
             if self.dry_run:  # pragma: nocover
-                print('[Dry Run]: skipping requirements replacement:',
-                      original_line.replace('\n', ''), ' / ',
-                      line.replace('\n', ''))
+                print(
+                    '[Dry Run]: skipping requirements replacement:',
+                    original_line.replace('\n', ''),
+                    ' / ',
+                    line.replace('\n', ''),
+                )
                 return original_line
         return line

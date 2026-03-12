@@ -1,7 +1,4 @@
-**Currently unmaintained, I'm using [https://docs.astral.sh/uv/](https://docs.astral.sh/uv/) for all my projects, but i'm happy to review and release PRs**
-
-
-# pip-upgrader [![Build Status](https://travis-ci.org/simion/pip-upgrader.svg?branch=master)](https://travis-ci.org/simion/pip-upgrader)
+# pip-upgrader [![CI](https://github.com/simion/pip-upgrader/actions/workflows/ci.yml/badge.svg)](https://github.com/simion/pip-upgrader/actions/workflows/ci.yml)
 
 An interactive pip requirements upgrader. Because upgrading
 requirements, package by package, is a pain in the ass. It also updates
@@ -24,7 +21,7 @@ Quick preview:
 
     pip install pip-upgrader
 
-**Note:** this packages installs the following requirements: `'docopt',
+**Note:** this packages installs the following requirements: `'docopt-ng',
 'packaging', 'requests', 'terminaltables', 'colorclass'`
 
 To avoid installing all these dependencies in your project, you can
@@ -47,9 +44,11 @@ Arguments: :
     --prerelease                  Include prerelease versions for upgrade, when querying pypi repositories.
     -p <package>                  Pre-choose which packages tp upgrade. Skips any prompt.
     --dry-run                     Simulates the upgrade, but does not execute the actual upgrade.
+    --check-greater-equal         Also checks packages with minimum version pinned (package>=version).
     --skip-package-installation   Only upgrade the version in requirements files, don't install the new package.
     --skip-virtualenv-check       Disable virtualenv check. Allows installing the new packages outside the virtualenv.
     --use-default-index           Skip searching for custom index-url in pip configuration file(s).
+    --timeout <seconds>           Set a custom timeout for PyPI requests (default: 15 seconds).
 
 Examples:
 
@@ -64,13 +63,30 @@ Examples:
     # include pre-release versions
     pip-upgrade --prerelease
 
-To use `pip-upgrader` on install requirements located in a `setup.py`
-file, try this:
+    # also check packages pinned with >= instead of ==
+    pip-upgrade --check-greater-equal
 
-``` sh
-./setup.py egg_info
-pip-upgrade $(./setup.py --name | tr -- - _)*.egg-info/requires.txt
+    # set a custom timeout for PyPI requests
+    pip-upgrade --timeout 30
+
+## Development
+
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management:
+
+```sh
+uv sync --extra test --extra dev   # install all dependencies
+uv run pytest                      # run tests
+uv run ruff check .                # lint
+uv run ruff format --check .       # check formatting
 ```
 
-This will display any versions that can be upgraded, and helps you to
-manually main
+## Releasing
+
+Releases are published to PyPI automatically via GitHub Actions when a version tag is pushed:
+
+```sh
+git tag v1.10.0
+git push origin v1.10.0
+```
+
+This triggers the `publish.yml` workflow which builds and publishes to PyPI using trusted publishers (OIDC).

@@ -1,5 +1,5 @@
 class PackagesDetector(object):
-    """ Takes list of requirements fies and returns the list of packages from all of them """
+    """Takes list of requirements fies and returns the list of packages from all of them"""
 
     packages = []
 
@@ -25,12 +25,17 @@ class PackagesDetector(object):
         if line.startswith('#'):
             return
 
-        if line.startswith('-f') or line.startswith('--find-links') or \
-                line.startswith('-i') or line.startswith('--index-url') or \
-                line.startswith('--extra-index-url') or \
-                line.startswith('--no-index') or \
-                line.startswith('-r') or \
-                line.startswith('-Z') or line.startswith('--always-unzip'):
+        if (
+            line.startswith('-f')
+            or line.startswith('--find-links')
+            or line.startswith('-i')
+            or line.startswith('--index-url')
+            or line.startswith('--extra-index-url')
+            or line.startswith('--no-index')
+            or line.startswith('-r')
+            or line.startswith('-Z')
+            or line.startswith('--always-unzip')
+        ):
             # private repositories
             return
 

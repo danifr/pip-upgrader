@@ -3,7 +3,7 @@ import os
 
 
 class RequirementsDetector(object):
-    """ Takes raw requirements argument, and detects / discovers all the requirements files. """
+    """Takes raw requirements argument, and detects / discovers all the requirements files."""
 
     filenames = []
 
@@ -16,7 +16,7 @@ class RequirementsDetector(object):
             self.detect_files(requirements_arg)
 
     def get_filenames(self):
-        """ Returns a list of all filenames detected as proper requirements files. """
+        """Returns a list of all filenames detected as proper requirements files."""
         return self.filenames
 
     def detect_files(self, requirements_arg):
@@ -28,15 +28,13 @@ class RequirementsDetector(object):
         self._check_inclusions_recursively()
 
     def autodetect_files(self):
-        """ Attempt to detect requirements files in the current working directory """
-        if self._is_valid_requirements_file('requirements.txt'):
-            self.filenames.append('requirements.txt')
-
-        if self._is_valid_requirements_file('requirements.pip'):  # pragma: nocover
-            self.filenames.append('requirements.pip')
+        """Attempt to detect requirements files in the current working directory"""
+        for candidate in ['requirements.txt', 'requirements.pip', 'requirements.in']:
+            if self._is_valid_requirements_file(candidate):
+                self.filenames.append(candidate)
 
         if os.path.isdir('requirements'):
-            for filename in os.listdir('requirements'):
+            for filename in sorted(os.listdir('requirements')):
                 file_path = os.path.join('requirements', filename)
                 if self._is_valid_requirements_file(file_path):
                     self.filenames.append(file_path)
