@@ -1,4 +1,4 @@
-# pip-upgrader [![CI](https://github.com/simion/pip-upgrader/actions/workflows/ci.yml/badge.svg)](https://github.com/simion/pip-upgrader/actions/workflows/ci.yml)
+# pip-upgrader [![CI](https://github.com/simion/pip-upgrader/actions/workflows/ci.yml/badge.svg)](https://github.com/simion/pip-upgrader/actions/workflows/ci.yml) [![PyPI](https://img.shields.io/pypi/v/pip-upgrader)](https://pypi.org/project/pip-upgrader/) [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
 An interactive pip requirements upgrader. Because upgrading
 requirements, package by package, is a pain in the ass. It also updates
