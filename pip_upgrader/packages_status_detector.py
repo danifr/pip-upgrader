@@ -38,6 +38,7 @@ class PackagesStatusDetector(object):
     def __init__(self, packages, options):
         self.packages = packages
         self.packages_status_map = {}
+        self.pip_config_locations = list(self.pip_config_locations)
         self.PYPI_API_URL = 'https://pypi.python.org/pypi/{package}/json'
         self.PYPI_API_TYPE = 'pypi_json'
 
@@ -119,9 +120,11 @@ class PackagesStatusDetector(object):
 
                 if explicit_packages_lower and package_name.lower() not in explicit_packages_lower:
                     found = False
+                    package_name_lower = package_name.lower()
                     for option_package in explicit_packages_lower:
-                        if re.search(option_package, package_name.lower()):
+                        if re.search(option_package, package_name_lower):
                             found = True
+                            break
                     if not found:
                         # skip if explicit and not chosen
                         continue
@@ -189,6 +192,16 @@ class PackagesStatusDetector(object):
 
         return None, None
 
+    def _pick_latest_version(self, all_versions, filtered_versions, current_version):
+        latest_version = max(filtered_versions)
+        if self._prerelease or current_version.is_postrelease or current_version.is_prerelease:
+            prerelease_versions = [vers for vers in all_versions if vers.is_prerelease or vers.is_postrelease]
+            if prerelease_versions:
+                max_prerelease = max(prerelease_versions)
+                if max_prerelease > latest_version:
+                    latest_version = max_prerelease
+        return latest_version
+
     def _parse_pypi_json_package_info(self, package_name, current_version, response):
         """
         :type package_name: str
@@ -211,14 +224,7 @@ class PackagesStatusDetector(object):
         if not filtered_versions:  # pragma: nocover
             return False, 'error while parsing version'
 
-        latest_version = max(filtered_versions)
-
-        # even if user did not choose prerelease, if the package from requirements is pre/post release, use it
-        if self._prerelease or current_version.is_postrelease or current_version.is_prerelease:
-            prerelease_versions = [vers for vers in all_versions if vers.is_prerelease or vers.is_postrelease]
-            if prerelease_versions:
-                if max(prerelease_versions) > latest_version:
-                    latest_version = max(prerelease_versions)
+        latest_version = self._pick_latest_version(all_versions, filtered_versions, current_version)
         try:
             try:
                 latest_version_info = data['releases'][str(latest_version)][0]
@@ -254,13 +260,7 @@ class PackagesStatusDetector(object):
         if not filtered_versions:  # pragma: nocover
             return False, 'error while parsing version'
 
-        latest_version = max(filtered_versions)
-
-        # even if user did not choose prerelease, if the package from requirements is pre/post release, use it
-        if self._prerelease or current_version.is_postrelease or current_version.is_prerelease:
-            prerelease_versions = [vers for vers in all_versions if vers.is_prerelease or vers.is_postrelease]
-            if prerelease_versions:
-                latest_version = max(prerelease_versions)
+        latest_version = self._pick_latest_version(all_versions, filtered_versions, current_version)
 
         return {
            'name': package_name,

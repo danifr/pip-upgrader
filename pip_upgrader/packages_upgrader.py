@@ -57,12 +57,9 @@ class PackagesUpgrader(object):
 
     def _update_requirements_package(self, package):
         for filename in set(self.requirements_files):
-            lines = []
-
             # read current lines
             with open(filename, 'r') as frh:
-                for line in frh:
-                    lines.append(line)
+                lines = frh.readlines()
 
             try:
                 # write updates lines

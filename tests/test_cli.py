@@ -335,7 +335,7 @@ class TestCommand(TestCase):
         self.assertFalse(user_input_mock.called)
 
         self.assertIn('Setting API url', output)
-        self.assertIn('Django ... upgrade available: 1.10 ==> 1.11rc1', output)
+        self.assertIn('Django ... upgrade available: 1.10 ==> 1.11', output)
         self.assertNotIn('django-rest-auth', output)
         self.assertNotIn('ipdb', output)
 
