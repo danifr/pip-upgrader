@@ -1,9 +1,8 @@
 import os
-
+import re
 import subprocess
 from subprocess import CalledProcessError
 
-import re
 from colorclass import Color
 
 
@@ -34,12 +33,11 @@ class PackagesUpgrader(object):
         return self.upgraded_packages
 
     def _update_package(self, package):
-        """ Update (install) the package in current environment,
-        and if success, also replace version in file """
+        """Update (install) the package in current environment,
+        and if success, also replace version in file"""
         try:
             if not self.dry_run and not self.skip_package_installation:  # pragma: nocover
-                pinned = '{}=={}'.format(package['name'],
-                                         package['latest_version'])
+                pinned = '{}=={}'.format(package['name'], package['latest_version'])
                 subprocess.check_call(['pip', 'install', pinned])
             else:
                 # dry run has priority in messages
@@ -47,8 +45,7 @@ class PackagesUpgrader(object):
                     lbl = 'Dry Run'
                 else:
                     lbl = "Skip Install"  # pragma: nocover
-                print('[{}]: skipping package installation:'.format(lbl),
-                      package['name'])
+                print('[{}]: skipping package installation:'.format(lbl), package['name'])
             # update only if installation success
             self._update_requirements_package(package)
 
@@ -79,8 +76,7 @@ class PackagesUpgrader(object):
         pin_type = r'[>=]=' if self.check_gte else '=='
 
         pattern = r'\b({package}(?:\[\w*\])?{pin_type})[a-zA-Z0-9\.]+\b'.format(
-            package=re.escape(package['name']),
-            pin_type=pin_type
+            package=re.escape(package['name']), pin_type=pin_type
         )
 
         repl = r'\g<1>{}'.format(package['latest_version'])
@@ -92,8 +88,11 @@ class PackagesUpgrader(object):
                 self.upgraded_packages.append(package)
 
             if self.dry_run:  # pragma: nocover
-                print('[Dry Run]: skipping requirements replacement:',
-                      original_line.replace('\n', ''), ' / ',
-                      line.replace('\n', ''))
+                print(
+                    '[Dry Run]: skipping requirements replacement:',
+                    original_line.replace('\n', ''),
+                    ' / ',
+                    line.replace('\n', ''),
+                )
                 return original_line
         return line

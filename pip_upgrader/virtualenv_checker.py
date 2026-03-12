@@ -22,11 +22,15 @@ def check_for_virtualenv(options):
         return  # no check needed
 
     if not is_virtualenv():
-        print(Color("{autoyellow}It seems you haven't activated a virtualenv. \n"
-                    "Installing packages directly in the system is not recommended. \n"
-                    "{automagenta}Activate your project's virtualenv{/automagenta}, "
-                    "or {automagenta}re-run this command {/automagenta}with one of the following options:\n"
-                    "--skip-virtualenv-check (install the packages anyway)\n"
-                    "--skip-package-installation (don't install any package. just update the requirements file(s))"
-                    "{/autoyellow}"))
+        print(
+            Color(
+                "{autoyellow}It seems you haven't activated a virtualenv. \n"
+                "Installing packages directly in the system is not recommended. \n"
+                "{automagenta}Activate your project's virtualenv{/automagenta}, "
+                "or {automagenta}re-run this command {/automagenta}with one of the following options:\n"
+                "--skip-virtualenv-check (install the packages anyway)\n"
+                "--skip-package-installation (don't install any package. just update the requirements file(s))"
+                "{/autoyellow}"
+            )
+        )
         raise KeyboardInterrupt()

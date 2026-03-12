@@ -1,11 +1,10 @@
 import os
 import re
-import requests
 import sys
-
 from configparser import ConfigParser, NoOptionError, NoSectionError
 from urllib.parse import urljoin
 
+import requests
 from colorclass import Color
 from packaging import version
 from packaging.utils import canonicalize_name
@@ -51,7 +50,7 @@ class PackagesStatusDetector(object):
         self._timeout = int(timeout_val) if timeout_val else 15
 
     def _update_index_url_from_configs(self):
-        """ Checks for alternative index-url in pip.conf """
+        """Checks for alternative index-url in pip.conf"""
 
         if 'VIRTUAL_ENV' in os.environ:
             self.pip_config_locations.append(os.path.join(os.environ['VIRTUAL_ENV'], 'pip.conf'))
@@ -84,8 +83,12 @@ class PackagesStatusDetector(object):
 
         if index_url:
             self.PYPI_API_URL = self._prepare_api_url(index_url)
-            print(Color('Setting API url to {{autoyellow}}{}{{/autoyellow}} as found in {{autoyellow}}{}{{/autoyellow}}'
-                        '. Use --default-index-url to use pypi default index'.format(self.PYPI_API_URL, custom_config)))
+            print(
+                Color(
+                    'Setting API url to {{autoyellow}}{}{{/autoyellow}} as found in {{autoyellow}}{}{{/autoyellow}}'
+                    '. Use --default-index-url to use pypi default index'.format(self.PYPI_API_URL, custom_config)
+                )
+            )
 
     def _prepare_api_url(self, index_url):  # pragma: nocover
         if not index_url.endswith('/'):
@@ -142,9 +145,11 @@ class PackagesStatusDetector(object):
 
                     # compare versions
                     if current_version < package_status['latest_version']:
-                        print('upgrade available: {} ==> {} (uploaded on {})'.format(current_version,
-                                                                                     package_status['latest_version'],
-                                                                                     package_status['upload_time']))
+                        print(
+                            'upgrade available: {} ==> {} (uploaded on {})'.format(
+                                current_version, package_status['latest_version'], package_status['upload_time']
+                            )
+                        )
                     else:
                         print('up to date: {}'.format(current_version))
                     sys.stdout.flush()
@@ -163,8 +168,7 @@ class PackagesStatusDetector(object):
 
         try:
             package_canonical_name = canonicalize_name(package_name)
-            response = requests.get(self.PYPI_API_URL.format(package=package_canonical_name),
-                                    timeout=self._timeout)
+            response = requests.get(self.PYPI_API_URL.format(package=package_canonical_name), timeout=self._timeout)
         except HTTPError as e:  # pragma: nocover
             return False, e.message
 
@@ -242,7 +246,7 @@ class PackagesStatusDetector(object):
             'current_version': current_version,
             'latest_version': latest_version,
             'upgrade_available': current_version < latest_version,
-            'upload_time': upload_time
+            'upload_time': upload_time,
         }, 'success'
 
     def _parse_simple_html_package_info(self, package_name, current_version, response):
@@ -263,9 +267,9 @@ class PackagesStatusDetector(object):
         latest_version = self._pick_latest_version(all_versions, filtered_versions, current_version)
 
         return {
-           'name': package_name,
-           'current_version': current_version,
-           'latest_version': latest_version,
-           'upgrade_available': current_version < latest_version,
-           'upload_time': '-'
+            'name': package_name,
+            'current_version': current_version,
+            'latest_version': latest_version,
+            'upgrade_available': current_version < latest_version,
+            'upload_time': '-',
         }, 'success'

@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pip_upgrader"
+dynamic = ["version"]
+description = "An interactive pip requirements upgrader. It also updates the version in your requirements.txt file."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.9"
+authors = [
+    { name = "Simion Baws", email = "simion.agv@gmail.com" },
+]
+keywords = ["cli", "pip", "pypi", "requirements", "upgrade"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Topic :: Utilities",
+    "License :: OSI Approved :: Apache Software License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "colorclass",
+    "docopt-ng",
+    "packaging",
+    "requests",
+    "terminaltables",
+]
+
+[project.optional-dependencies]
+test = [
+    "coverage",
+    "mock",
+    "pytest",
+    "pytest-cov",
+    "responses",
+]
+dev = [
+    "black",
+    "ruff",
+]
+
+[project.scripts]
+pip-upgrade = "pip_upgrader.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/simion/pip-upgrader"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pip_upgrader"]
+
+[tool.pytest.ini_options]
+addopts = "--cov=pip_upgrader --cov-report=term-missing -s"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.black]
+line-length = 120
+target-version = ["py39"]
+skip-string-normalization = true

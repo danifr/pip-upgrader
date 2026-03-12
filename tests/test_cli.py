@@ -1,13 +1,12 @@
-from subprocess import PIPE, Popen as popen
+from subprocess import PIPE
+from subprocess import Popen as popen
 from unittest import TestCase
 
 import responses
 from packaging.utils import canonicalize_name
 
 from pip_upgrader import __version__ as VERSION
-
 from pip_upgrader import cli
-from pip_upgrader.packages_status_detector import PackagesStatusDetector
 
 try:
     from unittest.mock import patch
@@ -15,7 +14,6 @@ except ImportError:
     from mock import patch
 
 from io import StringIO
-
 
 DEFAULT_OPTIONS = {
     '--dry-run': False,
@@ -63,24 +61,25 @@ class TestCommand(TestCase):
             with open('tests/fixtures/{}.json'.format(package)) as fh:
                 body = fh.read()
 
-            responses.add(responses.GET,
-                          "https://pypi.python.org/pypi/{}/json".format(canonical),
-                          body=body,
-                          content_type="application/json")
+            responses.add(
+                responses.GET,
+                "https://pypi.python.org/pypi/{}/json".format(canonical),
+                body=body,
+                content_type="application/json",
+            )
 
             with open('tests/fixtures/{}.html'.format(canonical)) as fh:
                 body_html = fh.read()
-            responses.add(responses.GET,
-                          "https://pypi.python.org/simple/{}/".format(canonical),
-                          body=body_html)
+            responses.add(responses.GET, "https://pypi.python.org/simple/{}/".format(canonical), body=body_html)
 
     def setUp(self):
         self._add_responses_mocks()
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True,
-                                       '<requirements_file>': ['requirements.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(**{'--dry-run': True, '<requirements_file>': ['requirements.txt']}),
+    )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_basic_usage(self, options_mock, is_virtualenv_mock, user_input_mock):
@@ -98,15 +97,20 @@ class TestCommand(TestCase):
         self.assertIn('this was a simulation using --dry-run', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True,
-                                       '<requirements_file>': ['requirements.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(**{'--dry-run': True, '<requirements_file>': ['requirements.txt']}),
+    )
     @patch.dict('os.environ', {}, clear=False)
     def test_command_simple_html_index_url(self, options_mock, is_virtualenv_mock, user_input_mock):
 
-        with patch('sys.stdout', new_callable=StringIO) as stdout_mock, \
-                patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
-                      new=['pip.test.conf']):
+        with (
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+            patch(
+                'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
+                new=['pip.test.conf'],
+            ),
+        ):
             cli.main()
             output = stdout_mock.getvalue()
 
@@ -122,9 +126,10 @@ class TestCommand(TestCase):
         self.assertIn('this was a simulation using --dry-run', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True,
-                                       '<requirements_file>': ['requirements.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(**{'--dry-run': True, '<requirements_file>': ['requirements.txt']}),
+    )
     @patch.dict('os.environ', {'PIP_INDEX_URL': 'https://pypi.python.org/simple/'})
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_pip_index_url_environ(self, options_mock, is_virtualenv_mock, user_input_mock):
@@ -145,14 +150,21 @@ class TestCommand(TestCase):
         self.assertIn('this was a simulation using --dry-run', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True, '--use-default-index': True,
-                                       '<requirements_file>': ['requirements.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '--use-default-index': True, '<requirements_file>': ['requirements.txt']}
+        ),
+    )
     def test_command__use_default_index(self, options_mock, is_virtualenv_mock, user_input_mock):
 
-        with patch('sys.stdout', new_callable=StringIO) as stdout_mock, \
-                patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
-                      new=['pip.test.conf']):
+        with (
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+            patch(
+                'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
+                new=['pip.test.conf'],
+            ),
+        ):
             cli.main()
             output = stdout_mock.getvalue()
 
@@ -161,9 +173,10 @@ class TestCommand(TestCase):
         self.assertIn('Successfully upgraded', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True,
-                                       '<requirements_file>': ['requirements.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(**{'--dry-run': True, '<requirements_file>': ['requirements.txt']}),
+    )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_interactive_bad_choices(self, options_mock, is_virtualenv_mock, user_input_mock):
@@ -186,9 +199,10 @@ class TestCommand(TestCase):
         self.assertIn('No valid choice selected.', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True, '-p': ['all'],
-                                       '<requirements_file>': ['requirements.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(**{'--dry-run': True, '-p': ['all'], '<requirements_file>': ['requirements.txt']}),
+    )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_not_interactive_all_packages(self, options_mock, is_virtualenv_mock, user_input_mock):
@@ -210,9 +224,12 @@ class TestCommand(TestCase):
         self.assertIn('this was a simulation using --dry-run', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True, '-p': ['^django$'],
-                                       '<requirements_file>': ['requirements.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '-p': ['^django$'], '<requirements_file>': ['requirements.txt']}
+        ),
+    )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_not_interactive_specific_package(self, options_mock, is_virtualenv_mock, user_input_mock):
@@ -232,9 +249,12 @@ class TestCommand(TestCase):
         self.assertIn('Successfully upgraded', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True, '-p': ['ipython'],
-                                       '<requirements_file>': ['requirements.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '-p': ['ipython'], '<requirements_file>': ['requirements.txt']}
+        ),
+    )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_not_interactive_all_packages_up_to_date(self, options_mock, is_virtualenv_mock, user_input_mock):
@@ -250,9 +270,12 @@ class TestCommand(TestCase):
         self.assertIn('All packages are up-to-date.', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True, '-p': ['all'],
-                                       '<requirements_file>': ['requirements/production.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '-p': ['all'], '<requirements_file>': ['requirements/production.txt']}
+        ),
+    )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_not_interactive_explicit_requirements(self, options_mock, is_virtualenv_mock, user_input_mock):
@@ -273,9 +296,12 @@ class TestCommand(TestCase):
         self.assertIn('Successfully upgraded', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True, '-p': ['all'],
-                                       '<requirements_file>': ['requirements/local.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '-p': ['all'], '<requirements_file>': ['requirements/local.txt']}
+        ),
+    )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_not_recursive_requirements_include(self, options_mock, is_virtualenv_mock, user_input_mock):
@@ -296,9 +322,12 @@ class TestCommand(TestCase):
         self.assertIn('Successfully upgraded', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True, '-p': ['^django$'], '--prerelease': True,
-                                       '<requirements_file>': ['requirements.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '-p': ['^django$'], '--prerelease': True, '<requirements_file>': ['requirements.txt']}
+        ),
+    )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_not_specific_package_prerelease(self, options_mock, is_virtualenv_mock, user_input_mock):
@@ -319,15 +348,22 @@ class TestCommand(TestCase):
         self.assertIn('Successfully upgraded', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True, '-p': ['^django$'], '--prerelease': True,
-                                       '<requirements_file>': ['requirements.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '-p': ['^django$'], '--prerelease': True, '<requirements_file>': ['requirements.txt']}
+        ),
+    )
     @patch.dict('os.environ', {}, clear=False)
     def test_command_not_specific_package_prerelease_html_api(self, options_mock, is_virtualenv_mock, user_input_mock):
 
-        with patch('sys.stdout', new_callable=StringIO) as stdout_mock, \
-                patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
-                      new=['pip.test.conf']):
+        with (
+            patch('sys.stdout', new_callable=StringIO) as stdout_mock,
+            patch(
+                'pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations',
+                new=['pip.test.conf'],
+            ),
+        ):
             cli.main()
             output = stdout_mock.getvalue()
 
@@ -342,10 +378,17 @@ class TestCommand(TestCase):
         self.assertIn('Successfully upgraded', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True, '--skip-virtualenv-check': False,
-                                       '-p': ['^django$'],
-                                       '<requirements_file>': ['requirements.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{
+                '--dry-run': True,
+                '--skip-virtualenv-check': False,
+                '-p': ['^django$'],
+                '<requirements_file>': ['requirements.txt'],
+            }
+        ),
+    )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_not_interactive_not_virtualenv(self, options_mock, is_virtualenv_mock, user_input_mock):
@@ -360,10 +403,17 @@ class TestCommand(TestCase):
         self.assertNotIn('Successfully upgraded', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True, '--skip-virtualenv-check': True,
-                                       '-p': ['^django$'],
-                                       '<requirements_file>': ['requirements.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{
+                '--dry-run': True,
+                '--skip-virtualenv-check': True,
+                '-p': ['^django$'],
+                '<requirements_file>': ['requirements.txt'],
+            }
+        ),
+    )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_not_interactive_not_virtualenv_skip(self, options_mock, is_virtualenv_mock, user_input_mock):
@@ -381,9 +431,12 @@ class TestCommand(TestCase):
         self.assertIn('Successfully upgraded', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True, '--timeout': '30',
-                                       '<requirements_file>': ['requirements.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '--timeout': '30', '<requirements_file>': ['requirements.txt']}
+        ),
+    )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_with_custom_timeout(self, options_mock, is_virtualenv_mock, user_input_mock):
@@ -396,10 +449,16 @@ class TestCommand(TestCase):
         self.assertIn('Successfully upgraded', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True, '-p': ['all'],
-                                       '<requirements_file>': ['requirements/production.txt',
-                                                               'requirements/extra/debug.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{
+                '--dry-run': True,
+                '-p': ['all'],
+                '<requirements_file>': ['requirements/production.txt', 'requirements/extra/debug.txt'],
+            }
+        ),
+    )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_multiple_files_same_package(self, options_mock, is_virtualenv_mock, user_input_mock):
@@ -416,9 +475,10 @@ class TestCommand(TestCase):
         self.assertEqual(success_line.count('celery'), 1)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True, '-p': ['all'],
-                                       '<requirements_file>': ['requirements.txt']}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(**{'--dry-run': True, '-p': ['all'], '<requirements_file>': ['requirements.txt']}),
+    )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_dash_package_names(self, options_mock, is_virtualenv_mock, user_input_mock):
@@ -432,10 +492,17 @@ class TestCommand(TestCase):
         self.assertIn('Successfully upgraded', output)
 
     @responses.activate
-    @patch('pip_upgrader.cli.get_options',
-           return_value=make_options(**{'--dry-run': True, '-p': ['all'],
-                                       '<requirements_file>': ['requirements.txt'],
-                                       '--check-greater-equal': True}))
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{
+                '--dry-run': True,
+                '-p': ['all'],
+                '<requirements_file>': ['requirements.txt'],
+                '--check-greater-equal': True,
+            }
+        ),
+    )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
     def test_command_check_greater_equal(self, options_mock, is_virtualenv_mock, user_input_mock):
