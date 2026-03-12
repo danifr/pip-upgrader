@@ -4,8 +4,6 @@ from collections import OrderedDict
 import questionary
 from questionary import Style
 
-SELECT_ALL = 'select-all'
-
 STYLE = Style(
     [
         ('qmark', 'fg:cyan bold'),
@@ -76,8 +74,7 @@ class PackageInteractiveSelector(object):
 
         header = fmt_row('#', 'Package', 'Current', 'Latest', 'Release date')
 
-        choices = [questionary.Choice('** Select all **', value=SELECT_ALL, checked=False)]
-        choices.append(questionary.Separator(' ' + header))
+        choices = []
         for i, package in self.packages_for_upgrade.items():
             label = fmt_row(
                 str(i),
@@ -90,7 +87,7 @@ class PackageInteractiveSelector(object):
 
         print('')
         selected_values = questionary.checkbox(
-            'Select packages to upgrade:',
+            'Select packages to upgrade:\n  ' + header,
             choices=choices,
             style=STYLE,
             instruction='(↑↓ move, space toggle, enter confirm)',
@@ -100,10 +97,7 @@ class PackageInteractiveSelector(object):
             print('No choice selected.')
             raise KeyboardInterrupt()
 
-        if SELECT_ALL in selected_values:
-            self._select_packages(self.packages_for_upgrade.keys())
-        else:
-            self._select_packages(selected_values)
+        self._select_packages(selected_values)
 
     def _select_packages(self, indexes):
         selected = []

@@ -33,22 +33,19 @@ system Python, rather than your virtualenv.
 
 ## Usage
 
-**Activate your virtualenv** (important, because it will also install
-the new versions of upgraded packages in current virtualenv)
-
-**CD into your project.** Then: :
+**CD into your project.** Then:
 
     $ pip-upgrade
 
-Arguments: :
+This will update the pinned versions in your requirements files. You then install yourself with `uv sync`, `pip install -r requirements.txt`, or whatever you use.
+
+Arguments:
 
     requirements_file(s)          The requirement FILE, WILDCARD PATH to multiple files, or pyproject.toml. (positional arguments)
     --prerelease                  Include prerelease versions for upgrade, when querying pypi repositories.
     -p <package>                  Pre-choose which packages to upgrade. Skips any prompt.
     --dry-run                     Simulates the upgrade, but does not execute the actual upgrade.
-    --check-greater-equal         Also checks packages with minimum version pinned (package>=version).
-    --skip-package-installation   Only upgrade the version in requirements files, don't install the new package.
-    --skip-virtualenv-check       Disable virtualenv check. Allows installing the new packages outside the virtualenv.
+    --skip-greater-equal          Skip packages with >= pins (by default both == and >= are checked).
     --use-default-index           Skip searching for custom index-url in pip configuration file(s).
     --timeout <seconds>           Set a custom timeout for PyPI requests (default: 15 seconds).
 
@@ -69,8 +66,8 @@ Examples:
     # include pre-release versions
     pip-upgrade --prerelease
 
-    # also check packages pinned with >= instead of ==
-    pip-upgrade --check-greater-equal
+    # skip packages pinned with >= (only upgrade == pins)
+    pip-upgrade --skip-greater-equal
 
     # set a custom timeout for PyPI requests
     pip-upgrade --timeout 30

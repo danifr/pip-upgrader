@@ -2,22 +2,21 @@
 pip-upgrade
 
 Usage:
-  pip-upgrade [<requirements_file>] ... [--prerelease] [-p=<package>...] [--dry-run] [--check-greater-equal] [--skip-virtualenv-check] [--skip-package-installation] [--use-default-index] [--timeout=<seconds>]
+  pip-upgrade [<requirements_file>] ... [--prerelease] [-p=<package>...] [--dry-run] [--skip-greater-equal] [--use-default-index] [--timeout=<seconds>]
 
 Arguments:
-    requirements_file             The requirement FILE, or WILDCARD PATH to multiple files.
+    requirements_file             The requirement FILE, WILDCARD PATH to multiple files, or pyproject.toml.
     --prerelease                  Include prerelease versions for upgrade, when querying pypi repositories.
-    -p <package>                  Pre-choose which packages tp upgrade. Skips any prompt. You can also use regular expressions to filter packages to upgrade.
+    -p <package>                  Pre-choose which packages to upgrade. Skips any prompt. You can also use regular expressions to filter packages to upgrade.
     --dry-run                     Simulates the upgrade, but does not execute the actual upgrade.
-    --check-greater-equal         Also checks packages with minimum version pinned (package>=version).
-    --skip-package-installation   Only upgrade the version in requirements files, don't install the new package.
-    --skip-virtualenv-check       Disable virtualenv check. Allows installing the new packages outside the virtualenv.
+    --skip-greater-equal          Skip packages with >= pins (by default both == and >= are checked).
     --use-default-index           Skip searching for custom index-url in pip configuration file(s).
     --timeout <seconds>           Set a custom timeout for PyPI requests (default: 15 seconds).
 
 Examples:
-  pip-upgrade             # auto discovers requirements file
+  pip-upgrade             # auto discovers requirements file(s) and pyproject.toml
   pip-upgrade requirements.txt
+  pip-upgrade pyproject.toml
   pip-upgrade requirements/dev.txt requirements/production.txt
   pip-upgrade requirements.txt -p django -p celery
   pip-upgrade requirements.txt -p all
@@ -30,7 +29,6 @@ Help:
   https://github.com/simion/pip-upgrader
 """  # noqa: E501
 
-from colorclass import Color, Windows
 from docopt import docopt
 
 from pip_upgrader import __version__ as VERSION
@@ -39,7 +37,6 @@ from pip_upgrader.packages_interactive_selector import PackageInteractiveSelecto
 from pip_upgrader.packages_status_detector import PackagesStatusDetector
 from pip_upgrader.packages_upgrader import PackagesUpgrader
 from pip_upgrader.requirements_detector import RequirementsDetector
-from pip_upgrader.virtualenv_checker import check_for_virtualenv
 
 
 def get_options():
@@ -49,27 +46,16 @@ def get_options():
 def main():
     """Main CLI entrypoint."""
     options = get_options()
-    Windows.enable(auto_colors=True, reset_atexit=True)
 
     try:
-        # maybe check if virtualenv is not activated
-        check_for_virtualenv(options)
-
         # 1. detect requirements files
         filenames = RequirementsDetector(options.get('<requirements_file>')).get_filenames()
         if filenames:
-            print(
-                Color(
-                    '{{autoyellow}}Found valid requirements file(s):{{/autoyellow}} '
-                    '{{autocyan}}\n{}{{/autocyan}}'.format('\n'.join(filenames))
-                )
-            )
+            print('Found valid requirements file(s):\n{}'.format('\n'.join(filenames)))
         else:  # pragma: nocover
             print(
-                Color(
-                    '{autoyellow}No requirements files found in current directory. CD into your project '
-                    'or manually specify requirements files as arguments.{/autoyellow}'
-                )
+                'No requirements files found in current directory. CD into your project '
+                'or manually specify requirements files as arguments.'
             )
             return
         # 2. detect all packages inside requirements
@@ -81,20 +67,18 @@ def main():
         # 4. [optionally], show interactive screen when user can choose which packages to upgrade
         selected_packages = PackageInteractiveSelector(packages_status_map, options).get_packages()
 
-        # 5. having the list of packages, do the actual upgrade and replace the version inside all filenames
+        # 5. having the list of packages, replace the version inside all filenames
         upgraded_packages = PackagesUpgrader(selected_packages, filenames, options).do_upgrade()
 
-        print(
-            Color(
-                '{{autogreen}}Successfully upgraded (and updated requirements) for the following packages: '
-                '{}{{/autogreen}}'.format(','.join([package['name'] for package in upgraded_packages]))
-            )
-        )
+        pkg_names = ', '.join([package['name'] for package in upgraded_packages])
         if options['--dry-run']:
-            print(Color('{automagenta}Actually, no, because this was a simulation using --dry-run{/automagenta}'))
+            print('Dry run complete. Would upgrade: {}'.format(pkg_names))
+        else:
+            print('Updated versions in requirements for: {}'.format(pkg_names))
+            print('Run `uv sync` or `pip install -r <requirements_file>` to install the new versions.')
 
     except KeyboardInterrupt:  # pragma: nocover
-        print(Color('\n{autored}Upgrade interrupted.{/autored}'))
+        print('\nUpgrade interrupted.')
 
 
 if __name__ == '__main__':  # pragma: nocover

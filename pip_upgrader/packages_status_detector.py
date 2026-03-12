@@ -5,7 +5,6 @@ from configparser import ConfigParser, NoOptionError, NoSectionError
 from urllib.parse import urljoin
 
 import requests
-from colorclass import Color
 from packaging import version
 from packaging.utils import canonicalize_name
 from requests import HTTPError
@@ -31,7 +30,6 @@ class PackagesStatusDetector(object):
         '~/.config/pip/pip.ini',
     ]
 
-    check_gte = False
     _prerelease = False
 
     def __init__(self, packages, options):
@@ -44,7 +42,7 @@ class PackagesStatusDetector(object):
         if not options.get('--use-default-index'):
             self._update_index_url_from_configs()
 
-        self.check_gte = options.get('--check-greater-equal', False)
+        self.skip_gte = options.get('--skip-greater-equal', False)
         self._prerelease = False
         timeout_val = options.get('--timeout')
         self._timeout = int(timeout_val) if timeout_val else 15
@@ -84,9 +82,8 @@ class PackagesStatusDetector(object):
         if index_url:
             self.PYPI_API_URL = self._prepare_api_url(index_url)
             print(
-                Color(
-                    'Setting API url to {{autoyellow}}{}{{/autoyellow}} as found in {{autoyellow}}{}{{/autoyellow}}'
-                    '. Use --default-index-url to use pypi default index'.format(self.PYPI_API_URL, custom_config)
+                'Setting API url to {} as found in {}. Use --use-default-index to use pypi default index'.format(
+                    self.PYPI_API_URL, custom_config
                 )
             )
 
@@ -183,7 +180,7 @@ class PackagesStatusDetector(object):
             raise NotImplementedError('This type of PYPI_API_TYPE type is not supported')
 
     def _expand_package(self, package_line):
-        pin_types = ['==', '>='] if self.check_gte else ['==']
+        pin_types = ['=='] if self.skip_gte else ['==', '>=']
 
         for pin_type in pin_types:
             if pin_type in package_line:

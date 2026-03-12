@@ -17,9 +17,7 @@ from pip_upgrader.requirements_detector import RequirementsDetector
 DEFAULT_OPTIONS = {
     '--dry-run': False,
     '--prerelease': False,
-    '--check-greater-equal': False,
-    '--skip-virtualenv-check': False,
-    '--skip-package-installation': False,
+    '--skip-greater-equal': False,
     '--use-default-index': False,
     '--timeout': None,
     '-p': [],
@@ -34,11 +32,11 @@ def make_options(**overrides):
 
 
 def mock_checkbox_select_all(*args, **kwargs):
-    """Mock questionary.checkbox that selects all via the select-all option."""
-    from pip_upgrader.packages_interactive_selector import SELECT_ALL
-
+    """Mock questionary.checkbox that selects all choices."""
+    choices = kwargs.get('choices', [])
+    values = [c.value for c in choices]
     result = MagicMock()
-    result.unsafe_ask.return_value = [SELECT_ALL]
+    result.unsafe_ask.return_value = values
     return result
 
 
@@ -65,7 +63,6 @@ class TestVersion(TestCase):
 
 
 @patch('pip_upgrader.packages_interactive_selector.questionary.checkbox', side_effect=mock_checkbox_select_all)
-@patch('pip_upgrader.virtualenv_checker.is_virtualenv', return_value=True)
 class TestCommand(TestCase):
     PACKAGE_NAMES = ['Django', 'celery', 'django-rest-auth', 'ipython']
 
@@ -96,7 +93,7 @@ class TestCommand(TestCase):
     )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_basic_usage(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_basic_usage(self, options_mock, checkbox_mock):
 
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
@@ -106,8 +103,7 @@ class TestCommand(TestCase):
 
         self.assertIn('django-rest-auth ... upgrade available: 0.9.0 ==>', output)
         self.assertNotIn('ipdb', output)
-        self.assertIn('Successfully upgraded', output)
-        self.assertIn('this was a simulation using --dry-run', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(
@@ -115,7 +111,7 @@ class TestCommand(TestCase):
         return_value=make_options(**{'--dry-run': True, '<requirements_file>': ['requirements.txt']}),
     )
     @patch.dict('os.environ', {}, clear=False)
-    def test_command_simple_html_index_url(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_simple_html_index_url(self, options_mock, checkbox_mock):
 
         with (
             patch('sys.stdout', new_callable=StringIO) as stdout_mock,
@@ -128,14 +124,12 @@ class TestCommand(TestCase):
             output = stdout_mock.getvalue()
 
         self.assertTrue(checkbox_mock.called)
-        # checks if new index-url was discovered from config file
         self.assertIn('Setting API url', output)
         self.assertIn('https://pypi.python.org/simple/{package}', output)
 
         self.assertIn('django-rest-auth ... upgrade available: 0.9.0 ==>', output)
         self.assertNotIn('ipdb', output)
-        self.assertIn('Successfully upgraded', output)
-        self.assertIn('this was a simulation using --dry-run', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(
@@ -144,21 +138,19 @@ class TestCommand(TestCase):
     )
     @patch.dict('os.environ', {'PIP_INDEX_URL': 'https://pypi.python.org/simple/'})
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_pip_index_url_environ(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_pip_index_url_environ(self, options_mock, checkbox_mock):
 
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
             output = stdout_mock.getvalue()
 
         self.assertTrue(checkbox_mock.called)
-        # checks if new index-url was discovered from config file
         self.assertIn('Setting API url', output)
         self.assertIn('https://pypi.python.org/simple/{package}', output)
 
         self.assertIn('django-rest-auth ... upgrade available: 0.9.0 ==>', output)
         self.assertNotIn('ipdb', output)
-        self.assertIn('Successfully upgraded', output)
-        self.assertIn('this was a simulation using --dry-run', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(
@@ -167,7 +159,7 @@ class TestCommand(TestCase):
             **{'--dry-run': True, '--use-default-index': True, '<requirements_file>': ['requirements.txt']}
         ),
     )
-    def test_command__use_default_index(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command__use_default_index(self, options_mock, checkbox_mock):
 
         with (
             patch('sys.stdout', new_callable=StringIO) as stdout_mock,
@@ -179,9 +171,8 @@ class TestCommand(TestCase):
             cli.main()
             output = stdout_mock.getvalue()
 
-        # checks if new index-url was discovered from config file
         self.assertNotIn('Setting API url', output)
-        self.assertIn('Successfully upgraded', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(
@@ -190,7 +181,7 @@ class TestCommand(TestCase):
     )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_interactive_no_selection(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_interactive_no_selection(self, options_mock, checkbox_mock):
         checkbox_mock.side_effect = mock_checkbox_select_none
 
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
@@ -208,13 +199,12 @@ class TestCommand(TestCase):
     )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_not_interactive_all_packages(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_not_interactive_all_packages(self, options_mock, checkbox_mock):
 
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
             output = stdout_mock.getvalue()
 
-        # no interactive selection should be called
         self.assertFalse(checkbox_mock.called)
 
         self.assertNotIn('Setting API url', output)
@@ -222,8 +212,7 @@ class TestCommand(TestCase):
         self.assertIn('django-rest-auth ... upgrade available: 0.9.0 ==>', output)
         self.assertNotIn('ipdb', output)
 
-        self.assertIn('Successfully upgraded', output)
-        self.assertIn('this was a simulation using --dry-run', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(
@@ -234,13 +223,12 @@ class TestCommand(TestCase):
     )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_not_interactive_specific_package(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_not_interactive_specific_package(self, options_mock, checkbox_mock):
 
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
             output = stdout_mock.getvalue()
 
-        # no interactive selection should be called
         self.assertFalse(checkbox_mock.called)
 
         self.assertNotIn('Setting API url', output)
@@ -248,7 +236,7 @@ class TestCommand(TestCase):
         self.assertNotIn('django-rest-auth', output)
         self.assertNotIn('ipdb', output)
 
-        self.assertIn('Successfully upgraded', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(
@@ -259,16 +247,14 @@ class TestCommand(TestCase):
     )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_not_interactive_all_packages_up_to_date(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_not_interactive_all_packages_up_to_date(self, options_mock, checkbox_mock):
 
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
             output = stdout_mock.getvalue()
 
-        # no interactive selection should be called
         self.assertFalse(checkbox_mock.called)
         self.assertNotIn('Setting API url', output)
-        # ipython is not in requirements.txt, so no packages are found
         self.assertIn('All packages are up-to-date.', output)
 
     @responses.activate
@@ -280,13 +266,12 @@ class TestCommand(TestCase):
     )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_not_interactive_explicit_requirements(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_not_interactive_explicit_requirements(self, options_mock, checkbox_mock):
 
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
             output = stdout_mock.getvalue()
 
-        # no interactive selection should be called
         self.assertFalse(checkbox_mock.called)
 
         self.assertNotIn('Setting API url', output)
@@ -295,7 +280,7 @@ class TestCommand(TestCase):
         self.assertNotIn('ipdb', output)
         self.assertIn('celery ... upgrade available: 3.1.1 ==>', output)
 
-        self.assertIn('Successfully upgraded', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(
@@ -306,13 +291,12 @@ class TestCommand(TestCase):
     )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_not_recursive_requirements_include(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_not_recursive_requirements_include(self, options_mock, checkbox_mock):
 
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
             output = stdout_mock.getvalue()
 
-        # no interactive selection should be called
         self.assertFalse(checkbox_mock.called)
         self.assertIn('celery ... upgrade available: 3.1.1 ==>', output)
         self.assertIn('requirements/local.txt', output)
@@ -321,7 +305,7 @@ class TestCommand(TestCase):
         self.assertIn('requirements/extra/debug2.txt', output)
         self.assertNotIn('requirements/extra/bad_file.txt', output)
 
-        self.assertIn('Successfully upgraded', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(
@@ -332,22 +316,20 @@ class TestCommand(TestCase):
     )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_not_specific_package_prerelease(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_not_specific_package_prerelease(self, options_mock, checkbox_mock):
 
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
             output = stdout_mock.getvalue()
 
-        # no interactive selection should be called
         self.assertFalse(checkbox_mock.called)
 
         self.assertNotIn('Setting API url', output)
-        # With prerelease enabled, stable 1.11 > prerelease 1.11rc1, so stable wins
         self.assertIn('Django ... upgrade available: 1.10 ==> 1.11', output)
         self.assertNotIn('django-rest-auth', output)
         self.assertNotIn('ipdb', output)
 
-        self.assertIn('Successfully upgraded', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(
@@ -357,7 +339,7 @@ class TestCommand(TestCase):
         ),
     )
     @patch.dict('os.environ', {}, clear=False)
-    def test_command_not_specific_package_prerelease_html_api(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_not_specific_package_prerelease_html_api(self, options_mock, checkbox_mock):
 
         with (
             patch('sys.stdout', new_callable=StringIO) as stdout_mock,
@@ -369,7 +351,6 @@ class TestCommand(TestCase):
             cli.main()
             output = stdout_mock.getvalue()
 
-        # no interactive selection should be called
         self.assertFalse(checkbox_mock.called)
 
         self.assertIn('Setting API url', output)
@@ -377,60 +358,7 @@ class TestCommand(TestCase):
         self.assertNotIn('django-rest-auth', output)
         self.assertNotIn('ipdb', output)
 
-        self.assertIn('Successfully upgraded', output)
-
-    @responses.activate
-    @patch(
-        'pip_upgrader.cli.get_options',
-        return_value=make_options(
-            **{
-                '--dry-run': True,
-                '--skip-virtualenv-check': False,
-                '-p': ['^django$'],
-                '<requirements_file>': ['requirements.txt'],
-            }
-        ),
-    )
-    @patch.dict('os.environ', {}, clear=False)
-    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_not_interactive_not_virtualenv(self, options_mock, is_virtualenv_mock, checkbox_mock):
-        is_virtualenv_mock.return_value = False
-
-        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
-            cli.main()
-            output = stdout_mock.getvalue()
-
-        self.assertNotIn('Setting API url', output)
-        self.assertIn("It seems you haven't activated a virtualenv", output)
-        self.assertNotIn('Successfully upgraded', output)
-
-    @responses.activate
-    @patch(
-        'pip_upgrader.cli.get_options',
-        return_value=make_options(
-            **{
-                '--dry-run': True,
-                '--skip-virtualenv-check': True,
-                '-p': ['^django$'],
-                '<requirements_file>': ['requirements.txt'],
-            }
-        ),
-    )
-    @patch.dict('os.environ', {}, clear=False)
-    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_not_interactive_not_virtualenv_skip(self, options_mock, is_virtualenv_mock, checkbox_mock):
-        is_virtualenv_mock.return_value = False
-
-        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
-            cli.main()
-            output = stdout_mock.getvalue()
-
-        self.assertFalse(checkbox_mock.called)
-        self.assertNotIn('Setting API url', output)
-        self.assertIn('Django ... upgrade available: 1.10 ==>', output)
-        self.assertNotIn('django-rest-auth', output)
-        self.assertNotIn('ipdb', output)
-        self.assertIn('Successfully upgraded', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(
@@ -441,14 +369,14 @@ class TestCommand(TestCase):
     )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_with_custom_timeout(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_with_custom_timeout(self, options_mock, checkbox_mock):
 
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
             output = stdout_mock.getvalue()
 
         self.assertTrue(checkbox_mock.called)
-        self.assertIn('Successfully upgraded', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(
@@ -463,7 +391,7 @@ class TestCommand(TestCase):
     )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_multiple_files_same_package(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_multiple_files_same_package(self, options_mock, checkbox_mock):
         """Test that the same package across multiple files doesn't cause duplicate upgrades."""
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
@@ -471,9 +399,9 @@ class TestCommand(TestCase):
 
         self.assertFalse(checkbox_mock.called)
         self.assertIn('celery ... upgrade available: 3.1.1 ==>', output)
-        self.assertIn('Successfully upgraded', output)
+        self.assertIn('Dry run complete', output)
         # celery should only appear once in the success message
-        success_line = [line for line in output.split('\n') if 'Successfully upgraded' in line][0]
+        success_line = [line for line in output.split('\n') if 'Dry run complete' in line][0]
         self.assertEqual(success_line.count('celery'), 1)
 
     @responses.activate
@@ -483,7 +411,7 @@ class TestCommand(TestCase):
     )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_dash_package_names(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_dash_package_names(self, options_mock, checkbox_mock):
         """Test that packages with dashes in their names are resolved correctly."""
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
@@ -491,7 +419,7 @@ class TestCommand(TestCase):
 
         self.assertFalse(checkbox_mock.called)
         self.assertIn('django-rest-auth ... upgrade available: 0.9.0 ==>', output)
-        self.assertIn('Successfully upgraded', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(
@@ -501,27 +429,28 @@ class TestCommand(TestCase):
                 '--dry-run': True,
                 '-p': ['all'],
                 '<requirements_file>': ['requirements.txt'],
-                '--check-greater-equal': True,
+                '--skip-greater-equal': True,
             }
         ),
     )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_check_greater_equal(self, options_mock, is_virtualenv_mock, checkbox_mock):
-        """Test that --check-greater-equal flag works correctly."""
+    def test_command_skip_greater_equal(self, options_mock, checkbox_mock):
+        """Test that --skip-greater-equal skips >= pinned packages."""
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
             output = stdout_mock.getvalue()
 
         self.assertFalse(checkbox_mock.called)
+        # Django==1.10 uses == so it should still be found
         self.assertIn('Django ... upgrade available: 1.10 ==>', output)
-        self.assertIn('Successfully upgraded', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch('pip_upgrader.cli.get_options', return_value=make_options(**{'--dry-run': True}))
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_autodetect_requirements(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_autodetect_requirements(self, options_mock, checkbox_mock):
         """Test that requirements files are auto-detected when none specified."""
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
@@ -529,7 +458,7 @@ class TestCommand(TestCase):
 
         self.assertIn('Found valid requirements file(s)', output)
         self.assertIn('requirements.txt', output)
-        self.assertIn('Successfully upgraded', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(
@@ -540,7 +469,7 @@ class TestCommand(TestCase):
     )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_pyproject_toml(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_pyproject_toml(self, options_mock, checkbox_mock):
         """Test upgrading packages from pyproject.toml."""
         with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
@@ -550,7 +479,7 @@ class TestCommand(TestCase):
         self.assertIn('Django ... upgrade available: 1.10 ==>', output)
         self.assertIn('django-rest-auth ... upgrade available: 0.9.0 ==>', output)
         self.assertIn('celery ... upgrade available: 3.1.1 ==>', output)
-        self.assertIn('Successfully upgraded', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(
@@ -561,9 +490,8 @@ class TestCommand(TestCase):
     )
     @patch.dict('os.environ', {}, clear=False)
     @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
-    def test_command_pyproject_toml_version_replacement(self, options_mock, is_virtualenv_mock, checkbox_mock):
+    def test_command_pyproject_toml_version_replacement(self, options_mock, checkbox_mock):
         """Test that pyproject.toml versions are actually updated in the file."""
-        # Work on a copy to avoid modifying the fixture
         tmpdir = tempfile.mkdtemp()
         tmp_pyproject = tmpdir + '/pyproject.toml'
         shutil.copy('tests/fixtures/sample_pyproject.toml', tmp_pyproject)
@@ -571,25 +499,25 @@ class TestCommand(TestCase):
         options_mock.return_value = make_options(
             **{
                 '--dry-run': False,
-                '--skip-package-installation': True,
                 '-p': ['all'],
                 '<requirements_file>': [tmp_pyproject],
             }
         )
 
-        with patch('sys.stdout', new_callable=StringIO):
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
             cli.main()
+            output = stdout_mock.getvalue()
 
         with open(tmp_pyproject) as f:
             content = f.read()
 
-        # Versions should be updated
         self.assertNotIn('Django==1.10', content)
         self.assertNotIn('django-rest-auth[with_social]==0.9.0', content)
         self.assertNotIn('celery==3.1.1', content)
-        # New versions should be present
         self.assertIn('Django==', content)
         self.assertIn('celery==', content)
+        self.assertIn('Updated versions', output)
+        self.assertIn('uv sync', output)
 
         shutil.rmtree(tmpdir)
 
@@ -615,7 +543,6 @@ class TestPyprojectDetection(TestCase):
         self.assertIn('django-rest-auth[with_social]==0.9.0', packages)
         self.assertIn('celery==3.1.1', packages)
         self.assertIn('ipython==6.0.0', packages)
-        # pytest has no pin, should not be included
         self.assertNotIn('pytest', packages)
 
     def test_packages_detector_skips_env_markers(self):
@@ -634,7 +561,5 @@ class TestPyprojectDetection(TestCase):
         """PackagesDetector should handle a mix of requirements.txt and pyproject.toml."""
         detector = PackagesDetector(['requirements.txt', 'tests/fixtures/sample_pyproject.toml'])
         packages = detector.get_packages()
-        # From requirements.txt
         self.assertIn('Django==1.10', packages)
-        # From pyproject.toml optional-dependencies
         self.assertIn('celery==3.1.1', packages)

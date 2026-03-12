@@ -119,15 +119,6 @@ wheels = [
 ]
 
 [[package]]
-name = "colorclass"
-version = "2.2.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d7/1a/31ff00a33569a3b59d65bbdc445c73e12f92ad28195b7ace299f68b9af70/colorclass-2.2.2.tar.gz", hash = "sha256:6d4fe287766166a98ca7bc6f6312daf04a0481b1eda43e7173484051c0ab4366", size = 16709, upload-time = "2021-12-09T00:41:35.661Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/30/b6/daf3e2976932da4ed3579cff7a30a53d22ea9323ee4f0d8e43be60454897/colorclass-2.2.2-py2.py3-none-any.whl", hash = "sha256:6f10c273a0ef7a1150b1120b6095cbdd68e5cf36dfd5d0fc957a2500bbf99a55", size = 18995, upload-time = "2021-12-09T00:41:34.653Z" },
-]
-
-[[package]]
 name = "coverage"
 version = "7.13.4"
 source = { registry = "https://pypi.org/simple" }
@@ -333,7 +324,6 @@ wheels = [
 name = "pip-upgrader"
 source = { editable = "." }
 dependencies = [
-    { name = "colorclass" },
     { name = "docopt-ng" },
     { name = "packaging" },
     { name = "questionary" },
@@ -359,7 +349,6 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "colorclass" },
     { name = "coverage", marker = "extra == 'test'" },
     { name = "docopt-ng" },
     { name = "packaging" },
