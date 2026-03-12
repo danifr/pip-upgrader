@@ -77,7 +77,7 @@ This project uses [uv](https://docs.astral.sh/uv/) for dependency management:
 uv sync --extra test --extra dev   # install all dependencies
 uv run pytest                      # run tests
 uv run ruff check .                # lint
-uv run black --check .             # check formatting
+uv run ruff format --check .       # check formatting
 ```
 
 ## Releasing

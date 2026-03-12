@@ -1,16 +1,14 @@
+from io import StringIO
 from subprocess import PIPE
 from subprocess import Popen as popen
 from unittest import TestCase
+from unittest.mock import patch
 
 import responses
 from packaging.utils import canonicalize_name
 
 from pip_upgrader import __version__ as VERSION
 from pip_upgrader import cli
-
-from unittest.mock import patch
-
-from io import StringIO
 
 DEFAULT_OPTIONS = {
     '--dry-run': False,
