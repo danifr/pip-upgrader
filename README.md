@@ -7,8 +7,8 @@ the version in your requirements.txt and pyproject.toml files.
 ## Purpose
 
 This cli tool helps you interactively(or not) upgrade packages from
-requirements files or **pyproject.toml**, and also **update the pinned
-version in-place**.
+requirements files, **pyproject.toml** (PEP 621), or **Poetry** projects,
+and also **update the pinned version in-place**.
 
 If no requirements are given, the command **attempts to detect
 requirements file(s) and pyproject.toml** in the current directory.
@@ -60,7 +60,10 @@ Examples:
     pip-upgrade requirements.txt -p django -p celery
     pip-upgrade requirements.txt -p all
 
-    # upgrade dependencies in pyproject.toml
+    # upgrade dependencies in pyproject.toml (PEP 621)
+    pip-upgrade pyproject.toml -p all
+
+    # upgrade dependencies in a Poetry project
     pip-upgrade pyproject.toml -p all
 
     # include pre-release versions
@@ -71,6 +74,15 @@ Examples:
 
     # set a custom timeout for PyPI requests
     pip-upgrade --timeout 30
+
+## Supported Formats
+
+- **requirements.txt** (and `.pip`, `.in` variants) — `==` and `>=` pins
+- **pyproject.toml (PEP 621)** — `[project.dependencies]` and `[project.optional-dependencies]`
+- **pyproject.toml (Poetry)** — `[tool.poetry.dependencies]` and `[tool.poetry.group.*.dependencies]`
+  - String format: `Django = "==1.10"`, `requests = ">=2.25.0,<3.0.0"`
+  - Dict format: `django-rest-auth = {version = "==0.9.0", extras = ["with_social"]}`
+  - Only `==` and `>=` pins are upgraded (caret `^`, tilde `~`, and wildcard `*` pins are skipped)
 
 ## Development
 

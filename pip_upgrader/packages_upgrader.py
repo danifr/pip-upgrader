@@ -42,12 +42,26 @@ class PackagesUpgrader(object):
         original_line = line
         pin_type = '==' if self.skip_gte else r'[>=]='
 
+        # Standard format: package==version or package>=version (requirements.txt and PEP 621 pyproject.toml)
         pattern = r'\b({package}(?:\[\w*\])?{pin_type})[a-zA-Z0-9\.]+\b'.format(
             package=re.escape(package['name']), pin_type=pin_type
         )
-
         repl = r'\g<1>{}'.format(package['latest_version'])
         line = re.sub(pattern, repl, line)
+
+        # Poetry string format: package_name = "==version" or ">=version,<upper"
+        if line == original_line:
+            poetry_pattern = r'({package}(?:\[\w*\])?\s*=\s*"(?:{pin_type}))[a-zA-Z0-9\.]+'.format(
+                package=re.escape(package['name']), pin_type=pin_type
+            )
+            line = re.sub(poetry_pattern, repl, line)
+
+        # Poetry dict format: package_name = {version = "==version", ...}
+        if line == original_line:
+            poetry_dict_pattern = r'({package}\s*=\s*\{{[^}}]*version\s*=\s*"(?:{pin_type}))[a-zA-Z0-9\.]+'.format(
+                package=re.escape(package['name']), pin_type=pin_type
+            )
+            line = re.sub(poetry_dict_pattern, repl, line)
 
         if line != original_line:
             if package['name'] not in self._upgraded_package_names:

@@ -650,3 +650,224 @@ class TestPyprojectDetection(TestCase):
         packages = detector.get_packages()
         self.assertIn('Django==1.10', packages)
         self.assertIn('celery==3.1.1', packages)
+
+
+class TestPoetrySupport(TestCase):
+    """Tests for Poetry pyproject.toml support."""
+
+    def test_requirements_detector_accepts_poetry_pyproject(self):
+        """RequirementsDetector should accept a pyproject.toml with [tool.poetry.dependencies]."""
+        detector = RequirementsDetector(['tests/fixtures/poetry_pyproject.toml'])
+        self.assertIn('tests/fixtures/poetry_pyproject.toml', detector.get_filenames())
+
+    def test_requirements_detector_rejects_poetry_pyproject_without_deps(self):
+        """RequirementsDetector should reject a Poetry pyproject.toml without dependencies."""
+        detector = RequirementsDetector(['tests/fixtures/no_poetry_deps_pyproject.toml'])
+        self.assertEqual(detector.get_filenames(), [])
+
+    def test_packages_detector_parses_poetry_dependencies(self):
+        """PackagesDetector should extract pinned deps from Poetry pyproject.toml."""
+        detector = PackagesDetector(['tests/fixtures/poetry_pyproject.toml'])
+        packages = detector.get_packages()
+        # == and >= pins should be included
+        self.assertIn('Django==1.10', packages)
+        self.assertIn('celery>=3.1.1', packages)
+        self.assertIn('ipython==6.0.0', packages)
+        # python should be skipped
+        python_pkgs = [p for p in packages if p.startswith('python')]
+        self.assertEqual(python_pkgs, [])
+        # caret (^) and wildcard (*) should be skipped
+        flask_pkgs = [p for p in packages if 'flask' in p.lower()]
+        self.assertEqual(flask_pkgs, [])
+        unpinned_pkgs = [p for p in packages if 'unpinned' in p.lower()]
+        self.assertEqual(unpinned_pkgs, [])
+
+    def test_packages_detector_parses_poetry_dict_format(self):
+        """PackagesDetector should handle Poetry dict format deps with extras."""
+        detector = PackagesDetector(['tests/fixtures/poetry_pyproject.toml'])
+        packages = detector.get_packages()
+        # Dict format with extras
+        self.assertIn('django-rest-auth[with_social]==0.9.0', packages)
+
+    def test_packages_detector_parses_poetry_groups(self):
+        """PackagesDetector should extract deps from Poetry dependency groups."""
+        detector = PackagesDetector(['tests/fixtures/poetry_pyproject.toml'])
+        packages = detector.get_packages()
+        # ruff from [tool.poetry.group.dev.dependencies] with == pin
+        self.assertIn('ruff==0.1.0', packages)
+        # pytest from [tool.poetry.group.test.dependencies] has ^ pin, should be skipped
+        pytest_pkgs = [p for p in packages if p.startswith('pytest')]
+        self.assertEqual(pytest_pkgs, [])
+
+    def test_upgrader_poetry_string_format(self):
+        """PackagesUpgrader should update Poetry string format versions."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'Django', 'latest_version': '4.2.0'}
+        result = upgrader._maybe_update_line_package('Django = "==1.10"\n', package)
+        self.assertEqual(result, 'Django = "==4.2.0"\n')
+
+    def test_upgrader_poetry_string_gte_format(self):
+        """PackagesUpgrader should update Poetry >= string format versions."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'celery', 'latest_version': '5.3.0'}
+        result = upgrader._maybe_update_line_package('celery = ">=3.1.1"\n', package)
+        self.assertEqual(result, 'celery = ">=5.3.0"\n')
+
+    def test_upgrader_poetry_string_gte_with_upper_bound(self):
+        """PackagesUpgrader should preserve upper bound in Poetry format."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'requests', 'latest_version': '2.31.0'}
+        result = upgrader._maybe_update_line_package('requests = ">=2.25.0,<3.0.0"\n', package)
+        self.assertEqual(result, 'requests = ">=2.31.0,<3.0.0"\n')
+
+    def test_upgrader_poetry_dict_format(self):
+        """PackagesUpgrader should update Poetry dict format versions."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'django-rest-auth', 'latest_version': '1.0.0'}
+        result = upgrader._maybe_update_line_package(
+            'django-rest-auth = {version = "==0.9.0", extras = ["with_social"]}\n', package
+        )
+        self.assertEqual(result, 'django-rest-auth = {version = "==1.0.0", extras = ["with_social"]}\n')
+
+    def test_upgrader_poetry_dict_gte_format(self):
+        """PackagesUpgrader should update Poetry dict format with >= versions."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'uvicorn', 'latest_version': '0.30.0'}
+        result = upgrader._maybe_update_line_package(
+            'uvicorn = {version = ">=0.20.0,<1.0", extras = ["standard"]}\n', package
+        )
+        self.assertEqual(result, 'uvicorn = {version = ">=0.30.0,<1.0", extras = ["standard"]}\n')
+
+    def test_upgrader_poetry_skip_gte(self):
+        """PackagesUpgrader should skip >= pins in Poetry format when --skip-greater-equal is set."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options(**{'--skip-greater-equal': True}))
+        package = {'name': 'celery', 'latest_version': '5.3.0'}
+        result = upgrader._maybe_update_line_package('celery = ">=3.1.1"\n', package)
+        self.assertEqual(result, 'celery = ">=3.1.1"\n')  # unchanged
+
+
+@patch('pip_upgrader.packages_interactive_selector.questionary.checkbox', side_effect=mock_checkbox_select_all)
+class TestPoetryIntegration(TestCase):
+    """Integration tests for Poetry pyproject.toml support."""
+
+    PACKAGE_NAMES = ['Django', 'celery', 'django-rest-auth', 'ipython']
+
+    def _add_responses_mocks(self):
+        for package in self.PACKAGE_NAMES:
+            canonical = canonicalize_name(package)
+            with open('tests/fixtures/{}.json'.format(package)) as fh:
+                body = fh.read()
+
+            responses.add(
+                responses.GET,
+                "https://pypi.python.org/pypi/{}/json".format(canonical),
+                body=body,
+                content_type="application/json",
+            )
+
+    def setUp(self):
+        self._add_responses_mocks()
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '-p': ['all'], '<requirements_file>': ['tests/fixtures/poetry_pyproject.toml']}
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_command_poetry_pyproject(self, options_mock, checkbox_mock):
+        """Test upgrading packages from a Poetry pyproject.toml."""
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        self.assertFalse(checkbox_mock.called)
+        self.assertIn('Django ... upgrade available: 1.10 ==>', output)
+        self.assertIn('django-rest-auth ... upgrade available: 0.9.0 ==>', output)
+        self.assertIn('celery ... upgrade available: 3.1.1 ==>', output)
+        self.assertIn('Dry run complete', output)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': False, '-p': ['all'], '<requirements_file>': ['tests/fixtures/poetry_pyproject.toml']}
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_command_poetry_pyproject_version_replacement(self, options_mock, checkbox_mock):
+        """Test that Poetry pyproject.toml versions are actually updated in the file."""
+        tmpdir = tempfile.mkdtemp()
+        tmp_pyproject = tmpdir + '/pyproject.toml'
+        shutil.copy('tests/fixtures/poetry_pyproject.toml', tmp_pyproject)
+
+        options_mock.return_value = make_options(
+            **{
+                '--dry-run': False,
+                '-p': ['all'],
+                '<requirements_file>': [tmp_pyproject],
+            }
+        )
+
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        with open(tmp_pyproject) as f:
+            content = f.read()
+
+        # Old versions should be replaced
+        self.assertNotIn('"==1.10"', content)
+        self.assertNotIn('"==0.9.0"', content)
+        self.assertNotIn('">=3.1.1"', content)
+        # New versions should be present
+        self.assertIn('Django = "==', content)
+        self.assertIn('celery = ">=', content)
+        # Caret/wildcard packages should remain untouched
+        self.assertIn('flask = "^2.0"', content)
+        self.assertIn('some-unpinned = "*"', content)
+        # Output should confirm success
+        self.assertIn('Updated versions', output)
+
+        shutil.rmtree(tmpdir)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '-p': ['all'], '<requirements_file>': ['tests/fixtures/poetry_pyproject.toml']}
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_command_poetry_mixed_with_requirements(self, options_mock, checkbox_mock):
+        """Test upgrading from both requirements.txt and Poetry pyproject.toml."""
+        options_mock.return_value = make_options(
+            **{
+                '--dry-run': True,
+                '-p': ['all'],
+                '<requirements_file>': ['requirements.txt', 'tests/fixtures/poetry_pyproject.toml'],
+            }
+        )
+
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        self.assertIn('Django ... upgrade available: 1.10 ==>', output)
+        self.assertIn('Dry run complete', output)

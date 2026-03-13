@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "poetry-sample-project"
+version = "1.0.0"
+description = "A sample Poetry project for testing"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+Django = "==1.10"
+celery = ">=3.1.1"
+django-rest-auth = {version = "==0.9.0", extras = ["with_social"]}
+ipython = "==6.0.0"
+flask = "^2.0"
+some-unpinned = "*"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "==0.1.0"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.0"

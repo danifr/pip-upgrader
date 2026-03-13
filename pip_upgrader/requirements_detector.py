@@ -59,13 +59,15 @@ class RequirementsDetector(object):
 
     @staticmethod
     def _is_valid_pyproject(filename):
-        """Check if file is a pyproject.toml with [project.dependencies]."""
+        """Check if file is a pyproject.toml with [project.dependencies] or [tool.poetry.dependencies]."""
         if not os.path.isfile(filename) or not filename.endswith('pyproject.toml'):
             return False
         try:
             with open(filename, 'rb') as f:
                 data = tomllib.load(f)
-            return 'dependencies' in data.get('project', {})
+            has_pep621 = 'dependencies' in data.get('project', {})
+            has_poetry = 'dependencies' in data.get('tool', {}).get('poetry', {})
+            return has_pep621 or has_poetry
         except Exception:
             return False
 

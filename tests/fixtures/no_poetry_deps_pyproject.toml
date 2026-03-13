@@ -1,0 +1,4 @@
+[tool.poetry]
+name = "empty-poetry-project"
+version = "1.0.0"
+description = "A Poetry project without dependencies section"
