@@ -45,9 +45,11 @@ Arguments:
     --prerelease                  Include prerelease versions for upgrade, when querying pypi repositories.
     -p <package>                  Pre-choose which packages to upgrade. Skips any prompt.
     --dry-run                     Simulates the upgrade, but does not execute the actual upgrade.
-    --skip-greater-equal          Skip packages with >= pins (by default both == and >= are checked).
+    --skip-greater-equal          Skip packages with >= and ~= pins (by default ==, >=, and ~= are checked).
     --use-default-index           Skip searching for custom index-url in pip configuration file(s).
     --timeout <seconds>           Set a custom timeout for PyPI requests (default: 15 seconds).
+    --minor                       Only upgrade within the same major version (e.g. 1.2.3 -> 1.x.y).
+    --patch                       Only upgrade within the same major.minor version (e.g. 1.2.3 -> 1.2.x).
 
 Examples:
 
@@ -69,20 +71,27 @@ Examples:
     # include pre-release versions
     pip-upgrade --prerelease
 
-    # skip packages pinned with >= (only upgrade == pins)
+    # skip packages pinned with >= or ~= (only upgrade == pins)
     pip-upgrade --skip-greater-equal
+
+    # only upgrade within the same major version (no breaking changes)
+    pip-upgrade --minor
+
+    # only upgrade patch versions (safest)
+    pip-upgrade --patch
 
     # set a custom timeout for PyPI requests
     pip-upgrade --timeout 30
 
 ## Supported Formats
 
-- **requirements.txt** (and `.pip`, `.in` variants) — `==` and `>=` pins
+- **requirements.txt** (and `.pip`, `.in` variants) — `==`, `>=`, and `~=` pins
 - **pyproject.toml (PEP 621)** — `[project.dependencies]` and `[project.optional-dependencies]`
 - **pyproject.toml (Poetry)** — `[tool.poetry.dependencies]` and `[tool.poetry.group.*.dependencies]`
   - String format: `Django = "==1.10"`, `requests = ">=2.25.0,<3.0.0"`
   - Dict format: `django-rest-auth = {version = "==0.9.0", extras = ["with_social"]}`
   - Only `==` and `>=` pins are upgraded (caret `^`, tilde `~`, and wildcard `*` pins are skipped)
+- **Compatible release (`~=`)** — `~=1.2.3` is treated as `>=1.2.3, <1.3` per PEP 440; upgrades are constrained within the compatible range
 
 ## Development
 

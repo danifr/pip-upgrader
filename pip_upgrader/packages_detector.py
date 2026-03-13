@@ -60,8 +60,8 @@ class PackagesDetector(object):
         # Strip environment markers (e.g. '; python_version < "3.11"')
         if ';' in dep:
             dep = dep.split(';')[0].strip()
-        # Only include pinned dependencies (== or >=)
-        if '==' in dep or '>=' in dep:
+        # Only include pinned dependencies (==, >=, or ~=)
+        if '==' in dep or '>=' in dep or '~=' in dep:
             self.packages.append(dep)
 
     def _process_poetry_dep(self, name, spec):
@@ -82,8 +82,8 @@ class PackagesDetector(object):
         if not version_str:
             return
 
-        # Only include == or >= pinned dependencies
-        if '==' in version_str or '>=' in version_str:
+        # Only include ==, >=, or ~= pinned dependencies
+        if '==' in version_str or '>=' in version_str or '~=' in version_str:
             self.packages.append('{}{}'.format(name, version_str))
 
     def _process_req_line(self, line):

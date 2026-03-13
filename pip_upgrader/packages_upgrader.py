@@ -40,10 +40,10 @@ class PackagesUpgrader(object):
 
     def _maybe_update_line_package(self, line, package):
         original_line = line
-        pin_type = '==' if self.skip_gte else r'[>=]='
+        pin_type = '==' if self.skip_gte else r'(?:~=|[>=]=)'
 
         # Standard format: package==version or package>=version (requirements.txt and PEP 621 pyproject.toml)
-        pattern = r'\b({package}(?:\[\w*\])?{pin_type})[a-zA-Z0-9\.]+\b'.format(
+        pattern = r'(?<![\w-])({package}(?:\[\w*\])?{pin_type})[a-zA-Z0-9\.]+\b'.format(
             package=re.escape(package['name']), pin_type=pin_type
         )
         repl = r'\g<1>{}'.format(package['latest_version'])
@@ -51,15 +51,17 @@ class PackagesUpgrader(object):
 
         # Poetry string format: package_name = "==version" or ">=version,<upper"
         if line == original_line:
-            poetry_pattern = r'({package}(?:\[\w*\])?\s*=\s*"(?:{pin_type}))[a-zA-Z0-9\.]+'.format(
+            poetry_pattern = r'(?<![\w-])({package}(?:\[\w*\])?\s*=\s*"(?:{pin_type}))[a-zA-Z0-9\.]+'.format(
                 package=re.escape(package['name']), pin_type=pin_type
             )
             line = re.sub(poetry_pattern, repl, line)
 
         # Poetry dict format: package_name = {version = "==version", ...}
         if line == original_line:
-            poetry_dict_pattern = r'({package}\s*=\s*\{{[^}}]*version\s*=\s*"(?:{pin_type}))[a-zA-Z0-9\.]+'.format(
-                package=re.escape(package['name']), pin_type=pin_type
+            poetry_dict_pattern = (
+                r'(?<![\w-])({package}\s*=\s*\{{[^}}]*version\s*=\s*"(?:{pin_type}))[a-zA-Z0-9\.]+'.format(
+                    package=re.escape(package['name']), pin_type=pin_type
+                )
             )
             line = re.sub(poetry_dict_pattern, repl, line)
 

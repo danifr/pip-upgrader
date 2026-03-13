@@ -47,6 +47,14 @@ class PackagesStatusDetector(object):
         timeout_val = options.get('--timeout')
         self._timeout = int(timeout_val) if timeout_val else 15
 
+        # Upgrade constraint: 'patch', 'minor', or None (allow any)
+        if options.get('--patch'):
+            self._upgrade_constraint = 'patch'
+        elif options.get('--minor'):
+            self._upgrade_constraint = 'minor'
+        else:
+            self._upgrade_constraint = None
+
     def _update_index_url_from_configs(self):
         """Checks for alternative index-url in pip.conf"""
 
@@ -113,9 +121,8 @@ class PackagesStatusDetector(object):
 
         for i, package in enumerate(self.packages):
             try:
-                package_name, pinned_version = self._expand_package(package)
+                package_name, pinned_version, pin_type = self._expand_package(package)
                 if not package_name or not pinned_version:  # pragma: nocover
-                    # todo: treat <= or >= instead of ==
                     continue
 
                 if explicit_packages_lower and package_name.lower() not in explicit_packages_lower:
@@ -132,7 +139,14 @@ class PackagesStatusDetector(object):
                 current_version = version.parse(pinned_version)
 
                 if pinned_version and isinstance(current_version, version.Version):  # version parsing is correct
-                    package_status, reason = self._fetch_index_package_info(package_name, current_version)
+                    # Compute max_version constraint for ~= pins
+                    max_version = None
+                    if pin_type == '~=':
+                        max_version = self._compute_compatible_upper_bound(pinned_version)
+
+                    package_status, reason = self._fetch_index_package_info(
+                        package_name, current_version, max_version=max_version
+                    )
                     if not package_status:  # pragma: nocover
                         print(package, reason)
                         continue
@@ -157,10 +171,11 @@ class PackagesStatusDetector(object):
 
         return self.packages_status_map
 
-    def _fetch_index_package_info(self, package_name, current_version):
+    def _fetch_index_package_info(self, package_name, current_version, max_version=None):
         """
         :type package_name: str
         :type current_version: version.Version
+        :type max_version: version.Version or None
         """
 
         try:
@@ -173,14 +188,16 @@ class PackagesStatusDetector(object):
             return False, 'API error: {}'.format(response.reason)
 
         if self.PYPI_API_TYPE == 'pypi_json':
-            return self._parse_pypi_json_package_info(package_name, current_version, response)
+            return self._parse_pypi_json_package_info(package_name, current_version, response, max_version=max_version)
         elif self.PYPI_API_TYPE == 'simple_html':
-            return self._parse_simple_html_package_info(package_name, current_version, response)
+            return self._parse_simple_html_package_info(
+                package_name, current_version, response, max_version=max_version
+            )
         else:  # pragma: nocover
             raise NotImplementedError('This type of PYPI_API_TYPE type is not supported')
 
     def _expand_package(self, package_line):
-        pin_types = ['=='] if self.skip_gte else ['==', '>=']
+        pin_types = ['=='] if self.skip_gte else ['==', '>=', '~=']
 
         for pin_type in pin_types:
             if pin_type in package_line:
@@ -193,9 +210,34 @@ class PackagesStatusDetector(object):
                 if ',' in vers:
                     vers = vers.split(',')[0]
 
-                return name, vers
+                return name, vers, pin_type
 
-        return None, None
+        return None, None, None
+
+    @staticmethod
+    def _compute_compatible_upper_bound(version_str):
+        """Compute upper bound for ~= compatible release per PEP 440.
+
+        ~=X.Y.Z means >=X.Y.Z, <X.(Y+1).0
+        ~=X.Y means >=X.Y, <(X+1).0
+        """
+        parts = version_str.split('.')
+        if len(parts) < 2:
+            return None
+        # Drop last segment, increment the new last segment
+        parts = parts[:-1]
+        parts[-1] = str(int(parts[-1]) + 1)
+        return version.parse('.'.join(parts))
+
+    def _apply_version_constraints(self, versions, current_version, max_version=None):
+        """Filter versions based on upgrade constraint (--minor/--patch) and max_version (~= bound)."""
+        if max_version:
+            versions = [v for v in versions if v < max_version]
+        if self._upgrade_constraint == 'patch':
+            versions = [v for v in versions if v.major == current_version.major and v.minor == current_version.minor]
+        elif self._upgrade_constraint == 'minor':
+            versions = [v for v in versions if v.major == current_version.major]
+        return versions
 
     def _pick_latest_version(self, all_versions, filtered_versions, current_version):
         latest_version = max(filtered_versions)
@@ -207,7 +249,7 @@ class PackagesStatusDetector(object):
                     latest_version = max_prerelease
         return latest_version
 
-    def _parse_pypi_json_package_info(self, package_name, current_version, response):
+    def _parse_pypi_json_package_info(self, package_name, current_version, response, max_version=None):
         """
         :type package_name: str
         :type current_version: version.Version
@@ -225,6 +267,10 @@ class PackagesStatusDetector(object):
             filtered_versions = [vers for vers in all_versions if not vers.is_prerelease and not vers.is_postrelease]
         else:
             filtered_versions = all_versions
+
+        # Apply ~= upper bound and --minor/--patch constraints
+        filtered_versions = self._apply_version_constraints(filtered_versions, current_version, max_version)
+        all_versions = self._apply_version_constraints(all_versions, current_version, max_version)
 
         if not filtered_versions:  # pragma: nocover
             return False, 'error while parsing version'
@@ -250,7 +296,7 @@ class PackagesStatusDetector(object):
             'upload_time': upload_time,
         }, 'success'
 
-    def _parse_simple_html_package_info(self, package_name, current_version, response):
+    def _parse_simple_html_package_info(self, package_name, current_version, response, max_version=None):
         """
         :type package_name: str
         :type current_version: version.Version
@@ -266,6 +312,10 @@ class PackagesStatusDetector(object):
             except version.InvalidVersion:
                 continue
         filtered_versions = [vers for vers in all_versions if not vers.is_prerelease and not vers.is_postrelease]
+
+        # Apply ~= upper bound and --minor/--patch constraints
+        filtered_versions = self._apply_version_constraints(filtered_versions, current_version, max_version)
+        all_versions = self._apply_version_constraints(all_versions, current_version, max_version)
 
         if not filtered_versions:  # pragma: nocover
             return False, 'error while parsing version'

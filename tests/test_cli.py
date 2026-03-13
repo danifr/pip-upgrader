@@ -20,6 +20,8 @@ DEFAULT_OPTIONS = {
     '--skip-greater-equal': False,
     '--use-default-index': False,
     '--timeout': None,
+    '--minor': False,
+    '--patch': False,
     '-p': [],
     '<requirements_file>': [],
 }
@@ -532,7 +534,7 @@ class TestVersionRanges(TestCase):
         from pip_upgrader.packages_status_detector import PackagesStatusDetector
 
         detector = PackagesStatusDetector([], make_options())
-        name, vers = detector._expand_package('click>=8.1,<9')
+        name, vers, _pin = detector._expand_package('click>=8.1,<9')
         self.assertEqual(name, 'click')
         self.assertEqual(vers, '8.1')
 
@@ -541,7 +543,7 @@ class TestVersionRanges(TestCase):
         from pip_upgrader.packages_status_detector import PackagesStatusDetector
 
         detector = PackagesStatusDetector([], make_options())
-        name, vers = detector._expand_package('requests>=2.25.0,<3.0.0')
+        name, vers, _pin = detector._expand_package('requests>=2.25.0,<3.0.0')
         self.assertEqual(name, 'requests')
         self.assertEqual(vers, '2.25.0')
 
@@ -550,7 +552,7 @@ class TestVersionRanges(TestCase):
         from pip_upgrader.packages_status_detector import PackagesStatusDetector
 
         detector = PackagesStatusDetector([], make_options())
-        name, vers = detector._expand_package('Django==1.10')
+        name, vers, _pin = detector._expand_package('Django==1.10')
         self.assertEqual(name, 'Django')
         self.assertEqual(vers, '1.10')
 
@@ -559,7 +561,7 @@ class TestVersionRanges(TestCase):
         from pip_upgrader.packages_status_detector import PackagesStatusDetector
 
         detector = PackagesStatusDetector([], make_options(**{'--skip-greater-equal': True}))
-        name, vers = detector._expand_package('click>=8.1,<9')
+        name, vers, _pin = detector._expand_package('click>=8.1,<9')
         self.assertIsNone(name)
         self.assertIsNone(vers)
 
@@ -604,7 +606,7 @@ class TestVersionRanges(TestCase):
         from pip_upgrader.packages_status_detector import PackagesStatusDetector
 
         detector = PackagesStatusDetector([], make_options())
-        name, vers = detector._expand_package('uvicorn[standard]>=0.20.0,<1.0')
+        name, vers, _pin = detector._expand_package('uvicorn[standard]>=0.20.0,<1.0')
         self.assertEqual(name, 'uvicorn')
         self.assertEqual(vers, '0.20.0')
 
@@ -870,4 +872,189 @@ class TestPoetryIntegration(TestCase):
             output = stdout_mock.getvalue()
 
         self.assertIn('Django ... upgrade available: 1.10 ==>', output)
-        self.assertIn('Dry run complete', output)
+        self.assertIn('Dry run complete', output)  # end of TestPoetryIntegration
+
+
+class TestOverlappingPackageNames(TestCase):
+    """Tests for issue #61: overlapping package name regex."""
+
+    def test_upgrader_does_not_match_substring_package(self):
+        """Upgrading 'openai' should NOT modify 'opentelemetry-instrumentation-openai'."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'openai', 'latest_version': '1.50.0'}
+        result = upgrader._maybe_update_line_package('opentelemetry-instrumentation-openai==1.0.0\n', package)
+        self.assertEqual(result, 'opentelemetry-instrumentation-openai==1.0.0\n')  # unchanged
+
+    def test_upgrader_does_match_exact_package(self):
+        """Upgrading 'openai' SHOULD modify 'openai==1.0.0'."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'openai', 'latest_version': '1.50.0'}
+        result = upgrader._maybe_update_line_package('openai==1.0.0\n', package)
+        self.assertEqual(result, 'openai==1.50.0\n')
+
+    def test_upgrader_does_not_match_substring_in_pyproject(self):
+        """Upgrading 'openai' should NOT modify a pyproject.toml line with a longer name."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'openai', 'latest_version': '1.50.0'}
+        result = upgrader._maybe_update_line_package('    "opentelemetry-instrumentation-openai==1.0.0",\n', package)
+        self.assertEqual(result, '    "opentelemetry-instrumentation-openai==1.0.0",\n')
+
+    def test_upgrader_does_not_match_substring_poetry(self):
+        """Upgrading 'openai' should NOT modify Poetry lines with longer package names."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'openai', 'latest_version': '1.50.0'}
+        result = upgrader._maybe_update_line_package('opentelemetry-instrumentation-openai = "==1.0.0"\n', package)
+        self.assertEqual(result, 'opentelemetry-instrumentation-openai = "==1.0.0"\n')
+
+    def test_upgrader_matches_package_with_extras(self):
+        """Upgrading a package with extras should still work."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'openai', 'latest_version': '1.50.0'}
+        result = upgrader._maybe_update_line_package('openai[embeddings]==1.0.0\n', package)
+        self.assertEqual(result, 'openai[embeddings]==1.50.0\n')
+
+
+class TestCompatibleRelease(TestCase):
+    """Tests for ~= compatible release support (issue #34)."""
+
+    def test_expand_package_tilde_equal(self):
+        """_expand_package should handle ~= pins."""
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options())
+        name, vers, pin_type = detector._expand_package('requests~=2.25.0')
+        self.assertEqual(name, 'requests')
+        self.assertEqual(vers, '2.25.0')
+        self.assertEqual(pin_type, '~=')
+
+    def test_expand_package_skips_tilde_when_skip_gte(self):
+        """_expand_package should skip ~= pins when --skip-greater-equal is set."""
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options(**{'--skip-greater-equal': True}))
+        name, vers, pin_type = detector._expand_package('requests~=2.25.0')
+        self.assertIsNone(name)
+        self.assertIsNone(vers)
+
+    def test_compatible_upper_bound_three_parts(self):
+        """~=1.2.3 should have upper bound 1.3."""
+        from packaging.version import parse
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        bound = PackagesStatusDetector._compute_compatible_upper_bound('1.2.3')
+        self.assertEqual(bound, parse('1.3'))
+
+    def test_compatible_upper_bound_two_parts(self):
+        """~=1.2 should have upper bound 2."""
+        from packaging.version import parse
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        bound = PackagesStatusDetector._compute_compatible_upper_bound('1.2')
+        self.assertEqual(bound, parse('2'))
+
+    def test_upgrader_tilde_equal(self):
+        """PackagesUpgrader should update ~= pins."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'requests', 'latest_version': '2.31.0'}
+        result = upgrader._maybe_update_line_package('requests~=2.25.0\n', package)
+        self.assertEqual(result, 'requests~=2.31.0\n')
+
+    def test_upgrader_tilde_equal_skip_gte(self):
+        """PackagesUpgrader should skip ~= pins when --skip-greater-equal is set."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options(**{'--skip-greater-equal': True}))
+        package = {'name': 'requests', 'latest_version': '2.31.0'}
+        result = upgrader._maybe_update_line_package('requests~=2.25.0\n', package)
+        self.assertEqual(result, 'requests~=2.25.0\n')  # unchanged
+
+    def test_packages_detector_includes_tilde_equal(self):
+        """PackagesDetector should include ~= pinned deps from pyproject.toml."""
+        tmpdir = tempfile.mkdtemp()
+        tmp_pyproject = tmpdir + '/pyproject.toml'
+        with open(tmp_pyproject, 'w') as f:
+            f.write('[project]\nname = "test"\ndependencies = [\n    "requests~=2.25.0",\n]\n')
+        detector = PackagesDetector([tmp_pyproject])
+        packages = detector.get_packages()
+        self.assertIn('requests~=2.25.0', packages)
+        shutil.rmtree(tmpdir)
+
+    def test_version_constraint_applied(self):
+        """_apply_version_constraints should filter versions for ~= upper bound."""
+        from packaging.version import parse
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options())
+        versions = [parse('2.25.0'), parse('2.31.0'), parse('3.0.0'), parse('3.1.0')]
+        current = parse('2.25.0')
+        max_ver = parse('3')
+        result = detector._apply_version_constraints(versions, current, max_version=max_ver)
+        self.assertEqual(result, [parse('2.25.0'), parse('2.31.0')])
+
+
+class TestUpgradeConstraints(TestCase):
+    """Tests for --minor and --patch upgrade constraints (issue #12)."""
+
+    def test_patch_constraint_filters_versions(self):
+        """--patch should only allow same major.minor versions."""
+        from packaging.version import parse
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options(**{'--patch': True}))
+        versions = [parse('1.2.3'), parse('1.2.5'), parse('1.3.0'), parse('2.0.0')]
+        current = parse('1.2.3')
+        result = detector._apply_version_constraints(versions, current)
+        self.assertEqual(result, [parse('1.2.3'), parse('1.2.5')])
+
+    def test_minor_constraint_filters_versions(self):
+        """--minor should only allow same major versions."""
+        from packaging.version import parse
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options(**{'--minor': True}))
+        versions = [parse('1.2.3'), parse('1.3.0'), parse('2.0.0')]
+        current = parse('1.2.3')
+        result = detector._apply_version_constraints(versions, current)
+        self.assertEqual(result, [parse('1.2.3'), parse('1.3.0')])
+
+    def test_no_constraint_keeps_all(self):
+        """No constraint should keep all versions."""
+        from packaging.version import parse
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options())
+        versions = [parse('1.2.3'), parse('2.0.0'), parse('3.0.0')]
+        current = parse('1.2.3')
+        result = detector._apply_version_constraints(versions, current)
+        self.assertEqual(result, [parse('1.2.3'), parse('2.0.0'), parse('3.0.0')])
+
+    def test_combined_tilde_and_patch_constraint(self):
+        """Both ~= upper bound and --patch should apply together."""
+        from packaging.version import parse
+
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        detector = PackagesStatusDetector([], make_options(**{'--patch': True}))
+        versions = [parse('1.2.3'), parse('1.2.5'), parse('1.3.0'), parse('2.0.0')]
+        current = parse('1.2.3')
+        max_ver = parse('1.3')  # ~=1.2.3 upper bound
+        result = detector._apply_version_constraints(versions, current, max_version=max_ver)
+        self.assertEqual(result, [parse('1.2.3'), parse('1.2.5')])

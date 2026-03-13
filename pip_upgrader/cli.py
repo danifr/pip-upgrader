@@ -2,16 +2,18 @@
 pip-upgrade
 
 Usage:
-  pip-upgrade [<requirements_file>] ... [--prerelease] [-p=<package>...] [--dry-run] [--skip-greater-equal] [--use-default-index] [--timeout=<seconds>]
+  pip-upgrade [<requirements_file>] ... [--prerelease] [-p=<package>...] [--dry-run] [--skip-greater-equal] [--use-default-index] [--timeout=<seconds>] [--minor | --patch]
 
 Arguments:
     requirements_file             The requirement FILE, WILDCARD PATH to multiple files, or pyproject.toml.
     --prerelease                  Include prerelease versions for upgrade, when querying pypi repositories.
     -p <package>                  Pre-choose which packages to upgrade. Skips any prompt. You can also use regular expressions to filter packages to upgrade.
     --dry-run                     Simulates the upgrade, but does not execute the actual upgrade.
-    --skip-greater-equal          Skip packages with >= pins (by default both == and >= are checked).
+    --skip-greater-equal          Skip packages with >= and ~= pins (by default ==, >=, and ~= are checked).
     --use-default-index           Skip searching for custom index-url in pip configuration file(s).
     --timeout <seconds>           Set a custom timeout for PyPI requests (default: 15 seconds).
+    --minor                       Only upgrade within the same major version (e.g. 1.2.3 -> 1.x.y).
+    --patch                       Only upgrade within the same major.minor version (e.g. 1.2.3 -> 1.2.x).
 
 Examples:
   pip-upgrade             # auto discovers requirements file(s) and pyproject.toml
@@ -21,10 +23,13 @@ Examples:
   pip-upgrade requirements.txt -p django -p celery
   pip-upgrade requirements.txt -p all
   pip-upgrade requirements.txt --dry-run  # run everything as a simulation (don't do the actual upgrade)
+  pip-upgrade requirements.txt --minor    # only upgrade within same major version
+  pip-upgrade requirements.txt --patch    # only upgrade within same major.minor version
 
 Help:
   Interactively upgrade packages from requirements file, and also update the pinned version from requirements file(s).
   If no requirements are given, the command attempts to detect the requirements file(s) in the current directory.
+  Supports ==, >=, and ~= (compatible release) version pins.
 
   https://github.com/simion/pip-upgrader
 """  # noqa: E501
