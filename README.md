@@ -62,10 +62,7 @@ Examples:
     pip-upgrade requirements.txt -p django -p celery
     pip-upgrade requirements.txt -p all
 
-    # upgrade dependencies in pyproject.toml (PEP 621)
-    pip-upgrade pyproject.toml -p all
-
-    # upgrade dependencies in a Poetry project
+    # upgrade dependencies in pyproject.toml (PEP 621 or Poetry)
     pip-upgrade pyproject.toml -p all
 
     # include pre-release versions
@@ -90,8 +87,9 @@ Examples:
 - **pyproject.toml (Poetry)** — `[tool.poetry.dependencies]` and `[tool.poetry.group.*.dependencies]`
   - String format: `Django = "==1.10"`, `requests = ">=2.25.0,<3.0.0"`
   - Dict format: `django-rest-auth = {version = "==0.9.0", extras = ["with_social"]}`
-  - Only `==` and `>=` pins are upgraded (caret `^`, tilde `~`, and wildcard `*` pins are skipped)
+  - Only `==`, `>=`, and `~=` pins are upgraded (caret `^`, tilde `~`, and wildcard `*` pins are skipped)
 - **Compatible release (`~=`)** — `~=1.2.3` is treated as `>=1.2.3, <1.3` per PEP 440; upgrades are constrained within the compatible range
+- **Python version aware** — versions whose `requires_python` is incompatible with your current Python are automatically skipped
 
 ## Development
 
@@ -109,8 +107,8 @@ uv run ruff format --check .       # check formatting
 Releases are published to PyPI automatically via GitHub Actions when a version tag is pushed:
 
 ```sh
-git tag v2.1.0
-git push origin v2.1.0
+git tag v2.3.0
+git push origin v2.3.0
 ```
 
 This triggers the `publish.yml` workflow which builds and publishes to PyPI using trusted publishers (OIDC).
