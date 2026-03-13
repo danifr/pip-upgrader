@@ -1,3 +1,5 @@
+import os
+
 try:
     import tomllib
 except ModuleNotFoundError:
@@ -20,6 +22,8 @@ class PackagesDetector(object):
         for filename in requirements_files:
             if filename.endswith('pyproject.toml'):
                 self._detect_pyproject_packages(filename)
+            elif os.path.basename(filename) == 'Pipfile':
+                self._detect_pipfile_packages(filename)
             else:
                 self._detect_requirements_packages(filename)
 
@@ -52,6 +56,34 @@ class PackagesDetector(object):
         for group in poetry.get('group', {}).values():
             for name, spec in group.get('dependencies', {}).items():
                 self._process_poetry_dep(name, spec)
+
+    def _detect_pipfile_packages(self, filename):
+        with open(filename, 'rb') as f:
+            data = tomllib.load(f)
+
+        for name, spec in data.get('packages', {}).items():
+            self._process_pipfile_dep(name, spec)
+
+        for name, spec in data.get('dev-packages', {}).items():
+            self._process_pipfile_dep(name, spec)
+
+    def _process_pipfile_dep(self, name, spec):
+        """Process a Pipfile-style dependency (same format as Poetry)."""
+        # Handle dict format: {version = "==1.0", extras = [...], ...}
+        if isinstance(spec, dict):
+            version_str = spec.get('version', '')
+            extras = spec.get('extras', [])
+            if extras:
+                name = '{}[{}]'.format(name, ','.join(extras))
+        else:
+            version_str = str(spec)
+
+        if not version_str:
+            return
+
+        # Only include ==, >=, or ~= pinned dependencies
+        if '==' in version_str or '>=' in version_str or '~=' in version_str:
+            self.packages.append('{}{}'.format(name, version_str))
 
     def _process_pyproject_dep(self, dep):
         dep = dep.strip()

@@ -5,7 +5,7 @@ Usage:
   pip-upgrade [<requirements_file>] ... [--prerelease] [-p=<package>...] [--dry-run] [--skip-greater-equal] [--use-default-index] [--timeout=<seconds>] [--minor | --patch]
 
 Arguments:
-    requirements_file             The requirement FILE, WILDCARD PATH to multiple files, or pyproject.toml.
+    requirements_file             The requirement FILE, WILDCARD PATH to multiple files, pyproject.toml, or Pipfile.
     --prerelease                  Include prerelease versions for upgrade, when querying pypi repositories.
     -p <package>                  Pre-choose which packages to upgrade. Skips any prompt. You can also use regular expressions to filter packages to upgrade.
     --dry-run                     Simulates the upgrade, but does not execute the actual upgrade.
@@ -16,7 +16,7 @@ Arguments:
     --patch                       Only upgrade within the same major.minor version (e.g. 1.2.3 -> 1.2.x).
 
 Examples:
-  pip-upgrade             # auto discovers requirements file(s) and pyproject.toml
+  pip-upgrade             # auto discovers requirements file(s), pyproject.toml, and Pipfile
   pip-upgrade requirements.txt
   pip-upgrade pyproject.toml
   pip-upgrade requirements/dev.txt requirements/production.txt

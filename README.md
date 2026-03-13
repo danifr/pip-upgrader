@@ -2,16 +2,16 @@
 
 An interactive pip requirements upgrader. Because upgrading
 requirements, package by package, is a pain in the ass. It also updates
-the version in your requirements.txt and pyproject.toml files.
+the version in your requirements.txt, pyproject.toml, and Pipfile files.
 
 ## Purpose
 
 This cli tool helps you interactively(or not) upgrade packages from
-requirements files, **pyproject.toml** (PEP 621), or **Poetry** projects,
+requirements files, **pyproject.toml** (PEP 621), **Poetry**, or **Pipenv** projects,
 and also **update the pinned version in-place**.
 
 If no requirements are given, the command **attempts to detect
-requirements file(s) and pyproject.toml** in the current directory.
+requirements file(s), pyproject.toml, and Pipfile** in the current directory.
 
 Quick preview:
 
@@ -41,7 +41,7 @@ This will update the pinned versions in your requirements files. You then instal
 
 Arguments:
 
-    requirements_file(s)          The requirement FILE, WILDCARD PATH to multiple files, or pyproject.toml. (positional arguments)
+    requirements_file(s)          The requirement FILE, WILDCARD PATH to multiple files, pyproject.toml, or Pipfile. (positional arguments)
     --prerelease                  Include prerelease versions for upgrade, when querying pypi repositories.
     -p <package>                  Pre-choose which packages to upgrade. Skips any prompt.
     --dry-run                     Simulates the upgrade, but does not execute the actual upgrade.
@@ -53,9 +53,10 @@ Arguments:
 
 Examples:
 
-    pip-upgrade             # auto discovers requirements file(s) and pyproject.toml
+    pip-upgrade             # auto discovers requirements file(s), pyproject.toml, and Pipfile
     pip-upgrade requirements.txt
     pip-upgrade pyproject.toml
+    pip-upgrade Pipfile
     pip-upgrade requirements/dev.txt requirements/production.txt
 
     # skip prompt and manually choose some/all packages for upgrade
@@ -88,6 +89,7 @@ Examples:
   - String format: `Django = "==1.10"`, `requests = ">=2.25.0,<3.0.0"`
   - Dict format: `django-rest-auth = {version = "==0.9.0", extras = ["with_social"]}`
   - Only `==`, `>=`, and `~=` pins are upgraded (caret `^`, tilde `~`, and wildcard `*` pins are skipped)
+- **Pipfile (Pipenv)** — `[packages]` and `[dev-packages]` sections, same string/dict format as Poetry
 - **Compatible release (`~=`)** — `~=1.2.3` is treated as `>=1.2.3, <1.3` per PEP 440; upgrades are constrained within the compatible range
 - **Python version aware** — versions whose `requires_python` is incompatible with your current Python are automatically skipped
 

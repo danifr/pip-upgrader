@@ -1,0 +1,17 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+Django = "==1.10"
+celery = ">=3.1.1"
+django-rest-auth = {version = "==0.9.0", extras = ["with_social"]}
+flask = "*"
+
+[dev-packages]
+ipython = "==6.0.0"
+ruff = "*"
+
+[requires]
+python_version = "3.10"

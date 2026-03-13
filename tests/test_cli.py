@@ -1126,3 +1126,149 @@ class TestPythonVersionFiltering(TestCase):
 
         self.assertIsInstance(status, dict)
         self.assertEqual(status['latest_version'], parse('2.0.0'))
+
+
+class TestPipfileSupport(TestCase):
+    """Tests for Pipfile (Pipenv) support."""
+
+    def test_requirements_detector_accepts_pipfile(self):
+        """RequirementsDetector should accept a valid Pipfile."""
+        detector = RequirementsDetector(['tests/fixtures/Pipfile'])
+        self.assertIn('tests/fixtures/Pipfile', detector.get_filenames())
+
+    def test_requirements_detector_rejects_invalid_pipfile(self):
+        """RequirementsDetector should reject a file named Pipfile without [packages]."""
+        tmpdir = tempfile.mkdtemp()
+        tmp_pipfile = tmpdir + '/Pipfile'
+        with open(tmp_pipfile, 'w') as f:
+            f.write('[requires]\npython_version = "3.10"\n')
+        detector = RequirementsDetector([tmp_pipfile])
+        self.assertEqual(detector.get_filenames(), [])
+        shutil.rmtree(tmpdir)
+
+    def test_packages_detector_parses_pipfile(self):
+        """PackagesDetector should extract pinned deps from Pipfile."""
+        detector = PackagesDetector(['tests/fixtures/Pipfile'])
+        packages = detector.get_packages()
+        self.assertIn('Django==1.10', packages)
+        self.assertIn('celery>=3.1.1', packages)
+        self.assertIn('ipython==6.0.0', packages)
+        # wildcard should be skipped
+        flask_pkgs = [p for p in packages if 'flask' in p.lower()]
+        self.assertEqual(flask_pkgs, [])
+        ruff_pkgs = [p for p in packages if 'ruff' in p.lower()]
+        self.assertEqual(ruff_pkgs, [])
+
+    def test_packages_detector_parses_pipfile_dict_format(self):
+        """PackagesDetector should handle Pipfile dict format with extras."""
+        detector = PackagesDetector(['tests/fixtures/Pipfile'])
+        packages = detector.get_packages()
+        self.assertIn('django-rest-auth[with_social]==0.9.0', packages)
+
+    def test_upgrader_pipfile_string_format(self):
+        """PackagesUpgrader should update Pipfile string format versions."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'Django', 'latest_version': '4.2.0'}
+        result = upgrader._maybe_update_line_package('Django = "==1.10"\n', package)
+        self.assertEqual(result, 'Django = "==4.2.0"\n')
+
+    def test_upgrader_pipfile_dict_format(self):
+        """PackagesUpgrader should update Pipfile dict format versions."""
+        from pip_upgrader.packages_upgrader import PackagesUpgrader
+
+        upgrader = PackagesUpgrader([], [], make_options())
+        package = {'name': 'django-rest-auth', 'latest_version': '1.0.0'}
+        result = upgrader._maybe_update_line_package(
+            'django-rest-auth = {version = "==0.9.0", extras = ["with_social"]}\n', package
+        )
+        self.assertEqual(result, 'django-rest-auth = {version = "==1.0.0", extras = ["with_social"]}\n')
+
+
+@patch('pip_upgrader.packages_interactive_selector.questionary.checkbox', side_effect=mock_checkbox_select_all)
+class TestPipfileIntegration(TestCase):
+    """Integration tests for Pipfile support."""
+
+    PACKAGE_NAMES = ['Django', 'celery', 'django-rest-auth', 'ipython']
+
+    def _add_responses_mocks(self):
+        for package in self.PACKAGE_NAMES:
+            canonical = canonicalize_name(package)
+            with open('tests/fixtures/{}.json'.format(package)) as fh:
+                body = fh.read()
+            responses.add(
+                responses.GET,
+                "https://pypi.python.org/pypi/{}/json".format(canonical),
+                body=body,
+                content_type="application/json",
+            )
+
+    def setUp(self):
+        self._add_responses_mocks()
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '-p': ['all'], '<requirements_file>': ['tests/fixtures/Pipfile']}
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_command_pipfile(self, options_mock, checkbox_mock):
+        """Test upgrading packages from a Pipfile."""
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        self.assertFalse(checkbox_mock.called)
+        self.assertIn('Django ... upgrade available: 1.10 ==>', output)
+        self.assertIn('django-rest-auth ... upgrade available: 0.9.0 ==>', output)
+        self.assertIn('celery ... upgrade available: 3.1.1 ==>', output)
+        self.assertIn('Dry run complete', output)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': False, '-p': ['all'], '<requirements_file>': ['tests/fixtures/Pipfile']}
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_command_pipfile_version_replacement(self, options_mock, checkbox_mock):
+        """Test that Pipfile versions are actually updated in the file."""
+        tmpdir = tempfile.mkdtemp()
+        tmp_pipfile = tmpdir + '/Pipfile'
+        shutil.copy('tests/fixtures/Pipfile', tmp_pipfile)
+
+        options_mock.return_value = make_options(
+            **{
+                '--dry-run': False,
+                '-p': ['all'],
+                '<requirements_file>': [tmp_pipfile],
+            }
+        )
+
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        with open(tmp_pipfile) as f:
+            content = f.read()
+
+        # Old versions should be replaced
+        self.assertNotIn('"==1.10"', content)
+        self.assertNotIn('"==0.9.0"', content)
+        self.assertNotIn('">=3.1.1"', content)
+        # New versions should be present
+        self.assertIn('Django = "==', content)
+        self.assertIn('celery = ">=', content)
+        # Wildcard packages should remain untouched
+        self.assertIn('flask = "*"', content)
+        self.assertIn('ruff = "*"', content)
+        # Output should confirm success
+        self.assertIn('Updated versions', output)
+
+        shutil.rmtree(tmpdir)
