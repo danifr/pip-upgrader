@@ -6,6 +6,7 @@ from urllib.parse import urljoin
 
 import requests
 from packaging import version
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
 from requests import HTTPError
 
@@ -257,12 +258,24 @@ class PackagesStatusDetector(object):
         """
 
         data = response.json()
+        python_version = '{}.{}.{}'.format(sys.version_info.major, sys.version_info.minor, sys.version_info.micro)
         all_versions = []
         for vers in data['releases'].keys():
             try:
-                all_versions.append(version.parse(vers))
+                parsed_ver = version.parse(vers)
             except version.InvalidVersion:
                 continue
+            # Filter out versions that don't support the current Python
+            release_files = data['releases'][vers]
+            if release_files:
+                requires_python = release_files[0].get('requires_python')
+                if requires_python:
+                    try:
+                        if python_version not in SpecifierSet(requires_python):
+                            continue
+                    except InvalidSpecifier:
+                        pass
+            all_versions.append(parsed_ver)
         if not self._prerelease:
             filtered_versions = [vers for vers in all_versions if not vers.is_prerelease and not vers.is_postrelease]
         else:

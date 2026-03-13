@@ -1058,3 +1058,71 @@ class TestUpgradeConstraints(TestCase):
         max_ver = parse('1.3')  # ~=1.2.3 upper bound
         result = detector._apply_version_constraints(versions, current, max_version=max_ver)
         self.assertEqual(result, [parse('1.2.3'), parse('1.2.5')])
+
+
+class TestPythonVersionFiltering(TestCase):
+    """Tests for filtering package versions by Python compatibility (issue #60)."""
+
+    @responses.activate
+    def test_filters_incompatible_python_versions(self):
+        """Versions requiring a different Python should be excluded."""
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        # Build a fake PyPI JSON response with requires_python
+        pypi_data = {
+            'info': {'version': '3.0.0'},
+            'releases': {
+                '1.0.0': [{'upload_time': '2020-01-01T00:00:00', 'requires_python': None}],
+                '2.0.0': [{'upload_time': '2021-01-01T00:00:00', 'requires_python': '>=3.8'}],
+                '3.0.0': [{'upload_time': '2022-01-01T00:00:00', 'requires_python': '>=99.0'}],
+            },
+        }
+        import json
+
+        responses.add(
+            responses.GET,
+            'https://pypi.python.org/pypi/testpkg/json',
+            body=json.dumps(pypi_data),
+            content_type='application/json',
+        )
+
+        from packaging.version import parse
+
+        detector = PackagesStatusDetector([], make_options())
+        current = parse('1.0.0')
+        status, reason = detector._fetch_index_package_info('testpkg', current)
+
+        self.assertIsInstance(status, dict)
+        # v3.0.0 requires Python >=99.0, so latest should be v2.0.0
+        self.assertEqual(status['latest_version'], parse('2.0.0'))
+        self.assertTrue(status['upgrade_available'])
+
+    @responses.activate
+    def test_no_requires_python_passes_through(self):
+        """Versions without requires_python should not be filtered out."""
+        from pip_upgrader.packages_status_detector import PackagesStatusDetector
+
+        pypi_data = {
+            'info': {'version': '2.0.0'},
+            'releases': {
+                '1.0.0': [{'upload_time': '2020-01-01T00:00:00'}],
+                '2.0.0': [{'upload_time': '2021-01-01T00:00:00'}],
+            },
+        }
+        import json
+
+        responses.add(
+            responses.GET,
+            'https://pypi.python.org/pypi/testpkg2/json',
+            body=json.dumps(pypi_data),
+            content_type='application/json',
+        )
+
+        from packaging.version import parse
+
+        detector = PackagesStatusDetector([], make_options())
+        current = parse('1.0.0')
+        status, reason = detector._fetch_index_package_info('testpkg2', current)
+
+        self.assertIsInstance(status, dict)
+        self.assertEqual(status['latest_version'], parse('2.0.0'))
