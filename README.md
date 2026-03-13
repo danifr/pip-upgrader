@@ -109,8 +109,8 @@ uv run ruff format --check .       # check formatting
 Releases are published to PyPI automatically via GitHub Actions when a version tag is pushed:
 
 ```sh
-git tag v2.3.0
-git push origin v2.3.0
+git tag v2.4.0
+git push origin v2.4.0
 ```
 
 This triggers the `publish.yml` workflow which builds and publishes to PyPI using trusted publishers (OIDC).
