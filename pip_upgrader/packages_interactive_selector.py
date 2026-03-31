@@ -25,9 +25,12 @@ class PackageInteractiveSelector(object):
         self.packages_for_upgrade = {}
 
         # map with index number, for later choosing
+        skip_packages = [s.lower().strip() for s in (options.get('--skip') or [])]
         i = 1
         for package in packages_map.values():
             if package['upgrade_available']:
+                if any(re.search(s, package['name'].lower().strip()) for s in skip_packages):
+                    continue
                 self.packages_for_upgrade[i] = package.copy()
                 i += 1
 
