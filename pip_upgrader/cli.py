@@ -73,6 +73,8 @@ def main():
         selected_packages = PackageInteractiveSelector(packages_status_map, options).get_packages()
 
         # 5. having the list of packages, replace the version inside all filenames
+        if not selected_packages:
+            return
         upgraded_packages = PackagesUpgrader(selected_packages, filenames, options).do_upgrade()
 
         pkg_names = ', '.join([package['name'] for package in upgraded_packages])

@@ -34,7 +34,7 @@ class PackageInteractiveSelector(object):
         # maybe all packages are up-to-date
         if not self.packages_for_upgrade:
             print('All packages are up-to-date.')
-            raise KeyboardInterrupt()
+            return
 
         # choose which packages to upgrade (interactive or not)
         if '-p' in options and options['-p']:
