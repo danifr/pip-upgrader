@@ -2,12 +2,13 @@
 pip-upgrade
 
 Usage:
-  pip-upgrade [<requirements_file>] ... [--prerelease] [-p=<package>...] [--dry-run] [--update-requirements] [--skip-greater-equal] [--use-default-index] [--timeout=<seconds>] [--minor | --patch]
+  pip-upgrade [<requirements_file>] ... [--prerelease] [-p=<package>...] [-s=<package>... | --skip=<package>...] [--dry-run] [--update-requirements] [--skip-greater-equal] [--use-default-index] [--timeout=<seconds>] [--minor | --patch]
 
 Arguments:
     requirements_file             The requirement FILE, WILDCARD PATH to multiple files, pyproject.toml, or Pipfile.
     --prerelease                  Include prerelease versions for upgrade, when querying pypi repositories.
     -p <package>                  Pre-choose which packages to upgrade. Skips any prompt. You can also use regular expressions to filter packages to upgrade.
+    -s --skip <package>           Skip specific packages from upgrade. Supports regular expressions.
     --dry-run                     Simulates the upgrade, but does not execute the actual upgrade.
     --update-requirements         Updates all pending upgrades in the requirements file(s) without prompting.
     --skip-greater-equal          Skip packages with >= and ~= pins (by default ==, >=, and ~= are checked).
@@ -25,6 +26,7 @@ Examples:
   pip-upgrade requirements.txt -p all
   pip-upgrade requirements.txt --dry-run  # run everything as a simulation (don't do the actual upgrade)
   pip-upgrade requirements.txt --update-requirements  # update all pending upgrades in requirements file(s) without prompting
+  pip-upgrade requirements.txt --update-requirements --skip pandas --skip numpy  # update all except pandas and numpy
   pip-upgrade requirements.txt --minor    # only upgrade within same major version
   pip-upgrade requirements.txt --patch    # only upgrade within same major.minor version
 
