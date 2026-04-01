@@ -315,7 +315,8 @@ class PackagesStatusDetector(object):
         :type current_version: version.Version
         :type response: requests.models.Response
         """
-        pattern = r'<a.*>.*{name}-([A-z0-9\.-]*)(?:-py|\.tar).*<\/a>'.format(name=re.escape(package_name))
+        normalized_name = re.escape(package_name).replace(r'\-', r'[-_]')
+        pattern = r'<a.*>.*{name}-([0-9][A-Za-z0-9\.]*?)(?:-cp|-pp|-py|\.tar).*<\/a>'.format(name=normalized_name)
         versions_match = re.findall(pattern, response.content.decode('utf-8'), flags=re.IGNORECASE)
 
         all_versions = []
