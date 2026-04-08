@@ -22,6 +22,7 @@ DEFAULT_OPTIONS = {
     '--timeout': None,
     '--minor': False,
     '--patch': False,
+    '--non-interactive': False,
     '-p': [],
     '<requirements_file>': [],
 }
@@ -193,6 +194,51 @@ class TestCommand(TestCase):
         self.assertTrue(checkbox_mock.called)
         self.assertIn('No choice selected', output)
         self.assertNotIn('Setting API url', output)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{'--dry-run': True, '--non-interactive': True, '<requirements_file>': ['requirements.txt']}
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_command_non_interactive_flag(self, options_mock, checkbox_mock):
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        self.assertFalse(checkbox_mock.called)
+        self.assertIn('Django ... upgrade available: 1.10 ==>', output)
+        self.assertIn('django-rest-auth ... upgrade available: 0.9.0 ==>', output)
+        self.assertIn('Dry run complete', output)
+
+    @responses.activate
+    @patch(
+        'pip_upgrader.cli.get_options',
+        return_value=make_options(
+            **{
+                '--dry-run': True,
+                '--non-interactive': True,
+                '-p': ['django'],
+                '<requirements_file>': ['requirements.txt'],
+            }
+        ),
+    )
+    @patch.dict('os.environ', {}, clear=False)
+    @patch('pip_upgrader.packages_status_detector.PackagesStatusDetector.pip_config_locations', new=[])
+    def test_command_non_interactive_overrides_p(self, options_mock, checkbox_mock):
+        """--non-interactive should override -p and warn the user."""
+        with patch('sys.stdout', new_callable=StringIO) as stdout_mock:
+            cli.main()
+            output = stdout_mock.getvalue()
+
+        self.assertFalse(checkbox_mock.called)
+        self.assertIn('Warning: --non-interactive overrides -p', output)
+        # all packages upgraded, not just django
+        self.assertIn('django-rest-auth ... upgrade available: 0.9.0 ==>', output)
+        self.assertIn('Dry run complete', output)
 
     @responses.activate
     @patch(

@@ -45,6 +45,7 @@ Arguments:
     --prerelease                  Include prerelease versions for upgrade, when querying pypi repositories.
     -p <package>                  Pre-choose which packages to upgrade. Skips any prompt.
     --dry-run                     Simulates the upgrade, but does not execute the actual upgrade.
+    --non-interactive             Upgrade all packages without prompting. Equivalent to -p all. If -p is also given, it is overridden and a warning is printed.
     --skip-greater-equal          Skip packages with >= and ~= pins (by default ==, >=, and ~= are checked).
     --use-default-index           Skip searching for custom index-url in pip configuration file(s).
     --timeout <seconds>           Set a custom timeout for PyPI requests (default: 15 seconds).
@@ -62,6 +63,10 @@ Examples:
     # skip prompt and manually choose some/all packages for upgrade
     pip-upgrade requirements.txt -p django -p celery
     pip-upgrade requirements.txt -p all
+
+    # upgrade all packages without any prompt (non-interactive / CI-friendly)
+    pip-upgrade requirements.txt --non-interactive
+    pip-upgrade --non-interactive  # auto-discovers requirements files
 
     # upgrade dependencies in pyproject.toml (PEP 621 or Poetry)
     pip-upgrade pyproject.toml -p all
