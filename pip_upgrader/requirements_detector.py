@@ -97,7 +97,7 @@ class RequirementsDetector(object):
                 self._detect_inclusion(filename)
 
     def _detect_inclusion(self, filename):
-        with open(filename) as fh:
+        with open(filename, encoding='utf-8', errors='surrogateescape') as fh:
             for line in fh:
                 if line.strip().startswith('-r '):
                     included_filename = line.split('-r ')[1].strip()
